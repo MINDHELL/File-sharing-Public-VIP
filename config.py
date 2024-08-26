@@ -6,26 +6,26 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
-APP_ID = int(os.environ.get("APP_ID", "24955235"))
-API_HASH = os.environ.get("API_HASH", "f317b3f7bbe390346d8b46868cff0de8")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7454057146:AAGurGpjAFB51BXAVsD9FZ5BaG9M_Bo3MzA")
+APP_ID = int(os.environ.get("APP_ID", "24181943"))
+API_HASH = os.environ.get("API_HASH", "fb4b2c8b647b5e9a9314c0b3b0f307fc")
 
 
-OWNER = os.environ.get("OWNER", "PlayTime_Jatin") #Owner username
-OWNER_ID = int(os.environ.get("OWNER_ID", "1837294444")) #Owner user id
-DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://Cluster0:Cluster0@cluster0.c07xkuf.mongodb.net/?retryWrites=true&w=majority")
+OWNER = os.environ.get("OWNER", "PhDLust") #Owner username
+OWNER_ID = int(os.environ.get("OWNER_ID", "1198543451")) #Owner user id
+DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://ravianand361:veZh87RqfuwINNBH@cluster0.3prv3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = os.environ.get("DATABASE_NAME", "Cluser10")
 
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002004278204")) #database save channel id 
-FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "-1002049574995"))
-FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "-1002097822007"))
-FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "-1002097822007"))
-FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "-1002134495794"))
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002212742765")) #database save channel id 
+FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "-1002152013890"))
+FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "0"))
+FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "-1002152013890"))
+FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "0"))
 
 #Shortner (token system) 
 
-SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "publicearn.com") 
-SHORTLINK_API = os.environ.get("SHORTLINK_API", "b323441bc55ef14be63018992134d393a62a9da9")
+SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "modijiurl.com") 
+SHORTLINK_API = os.environ.get("SHORTLINK_API", "73a0824e4da17de787471ea41cff341bfe34d9b6")
 VERIFY_EXPIRE = int(os.environ.get('VERIFY_EXPIRE', 86400)) # Add time in seconds
 IS_VERIFY = os.environ.get("IS_VERIFY", "True")
 TUT_VID = os.environ.get("TUT_VID", "https://t.me/Ultroid_Official/18")
@@ -45,7 +45,7 @@ START_MSG = os.environ.get("START_MESSAGE", "Hello {first}\n\nI can store privat
 
 try:
     ADMINS=[6020516635]
-    for x in (os.environ.get("ADMINS", "6020516635 1837294444 6695586027").split()):
+    for x in (os.environ.get("ADMINS", "1198543451 6020516635 1837294444 6695586027").split()):
         ADMINS.append(int(x))
 except ValueError:
         raise Exception("Your Admins list does not contain valid integers.")
