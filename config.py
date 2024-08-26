@@ -16,7 +16,7 @@ OWNER_ID = int(os.environ.get("OWNER_ID", "1198543451")) #Owner user id
 DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://ravianand361:veZh87RqfuwINNBH@cluster0.3prv3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = os.environ.get("DATABASE_NAME", "Cluser10")
 
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002212742765")) #database save channel id 
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002145070748")) #database save channel id 
 FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "-1002152013890"))
 FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "0"))
 FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "-1002152013890"))
