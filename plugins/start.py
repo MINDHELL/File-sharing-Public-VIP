@@ -17,6 +17,7 @@ from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 from bot import Bot
 from config import (
     ADMINS,
+    BAN,
     FORCE_MSG,
     START_MSG,
     CUSTOM_CAPTION,
@@ -28,21 +29,52 @@ from config import (
     PROTECT_CONTENT,
     TUT_VID,
     OWNER_ID,
+    DB_NAME,
+    DB_URI,
 )
 from helper_func import subscribed, encode, decode, get_messages, get_shortlink, get_verify_status, update_verify_status, get_exp_time
 from database.database import add_user, del_user, full_userbase, present_user
 from shortzy import Shortzy
 
+client = MongoClient(DB_URI)  # Replace with your MongoDB URI
+db = client[DB_NAME]  # Database name
+pusers = db["pusers"]  # Collection for users
+
+# MongoDB Helper Functions
+async def add_premium_user(user_id, duration_in_days):
+    expiry_time = time.time() + (duration_in_days * 86400)  # Calculate expiry time in seconds
+    pusers.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_premium": True, "expiry_time": expiry_time}},
+        upsert=True
+    )
+
+async def remove_premium_user(user_id):
+    pusers.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_premium": False, "expiry_time": None}}
+    )
+
+async def get_user_subscription(user_id):
+    user = pusers.find_one({"user_id": user_id})
+    if user:
+        return user.get("is_premium", False), user.get("expiry_time", None)
+    return False, None
+
+async def is_premium_user(user_id):
+    is_premium, expiry_time = await get_user_subscription(user_id)
+    if is_premium and expiry_time > time.time():
+        return True
+    return False
+
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
-    owner_id = ADMINS  # Fetch the owner's ID from config
+    UBAN = BAN  # Fetch the owner's ID from config
 
     # Check if the user is the owner
-    if id == owner_id:
-        # Owner-specific actions
-        # You can add any additional actions specific to the owner here
-        await message.reply("You are the owner! Additional actions can be added here.")
+    if id == UBAN:
+        await message.reply("You are the U-BAN! Additional actions can be added here.")
 
     else:
         if not await present_user(id):
@@ -50,7 +82,9 @@ async def start_command(client: Client, message: Message):
                 await add_user(id)
             except:
                 pass
-
+                
+        premium_status = await is_premium_user(id)
+        
         verify_status = await get_verify_status(id)
         if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
             await update_verify_status(id, is_verified=False)
@@ -63,8 +97,8 @@ async def start_command(client: Client, message: Message):
             if verify_status["link"] == "":
                 reply_markup = None
             await message.reply(f"Your token successfully verified and valid for: 24 Hour", reply_markup=reply_markup, protect_content=False, quote=True)
-
-        elif len(message.text) > 7 and verify_status['is_verified']:
+    
+        elif len(message.text) > 7 and (verify_status['is_verified'] or premium_status):
             try:
                 base64_string = message.text.split(" ", 1)[1]
             except:
@@ -259,5 +293,68 @@ Unsuccessful: <code>{unsuccessful}</code></b>"""
         await asyncio.sleep(8)
         await msg.delete()
 
+# Add /addpr command for admins to add premium subscription
+@Bot.on_message(filters.command('addpr') & filters.private)
+async def add_premium(client: Client, message: Message):
+    if message.from_user.id != ADMINS:
+        return await message.reply("You don't have permission to add premium users.")
 
+    try:
+        command_parts = message.text.split()
+        target_user_id = int(command_parts[1])
+        duration_in_days = int(command_parts[2])
+        await add_premium_user(target_user_id, duration_in_days)
+        await message.reply(f"User {target_user_id} added to premium for {duration_in_days} days.")
+    except Exception as e:
+        await message.reply(f"Error: {str(e)}")
+
+# Add /removepr command for admins to remove premium subscription
+@Bot.on_message(filters.command('removepr') & filters.private)
+async def remove_premium(client: Client, message: Message):
+    if message.from_user.id != ADMINS:
+        return await message.reply("You don't have permission to remove premium users.")
+
+    try:
+        command_parts = message.text.split()
+        target_user_id = int(command_parts[1])
+        await remove_premium_user(target_user_id)
+        await message.reply(f"User {target_user_id} removed from premium.")
+    except Exception as e:
+        await message.reply(f"Error: {str(e)}")
+
+# Add /myplan command for users to check their premium subscription status
+@Bot.on_message(filters.command('myplan') & filters.private)
+async def my_plan(client: Client, message: Message):
+    is_premium, expiry_time = await get_user_subscription(message.from_user.id)
+    if is_premium:
+        time_left = expiry_time - time.time()
+        days_left = int(time_left / 86400)
+        await message.reply(f"Your premium subscription is active. Time left: {days_left} days.")
+    else:
+        await message.reply("You are not a premium user.")
+
+# Add /plans command to show available subscription plans
+@Bot.on_message(filters.command('plans') & filters.private)
+async def show_plans(client: Client, message: Message):
+    plans_text = """
+Available Subscription Plans:
+1. 7 Days Premium - $5
+2. 30 Days Premium - $15
+3. 90 Days Premium - $35
+
+Use /upi to make the payment.
+"""
+    await message.reply(plans_text)
+
+# Add /upi command to provide UPI payment details
+@Bot.on_message(filters.command('upi') & filters.private)
+async def upi_info(client: Client, message: Message):
+    upi_text = """
+To subscribe to premium, please make the payment via UPI.
+
+UPI ID: your-upi-id@bank
+
+After payment, contact the bot admin to activate your premium subscription.
+"""
+    await message.reply(upi_text)
 
