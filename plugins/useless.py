@@ -1,12 +1,12 @@
 # https://t.me/Ultroid_Official/524
 
 from bot import Bot
-from pyrogram.types import Message
 from pyrogram import filters
-from config import ADMINS, BOT_STATS_TEXT, USER_REPLY_TEXT
+from config import *
 from datetime import datetime
 from helper_func import get_readable_time
 from plugins.start import *
+from pyrogram.types import Message, CallbackQuery
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 
@@ -16,42 +16,6 @@ async def stats(bot: Bot, message: Message):
     delta = now - bot.uptime
     time = get_readable_time(delta.seconds)
     await message.reply(BOT_STATS_TEXT.format(uptime=time))
-
-
-
-
-"""
-# Add /addpr command for admins to add premium subscription
-@Bot.on_message(filters.private & filters.command('addpr') & filters.user(ADMINS))
-#@Bot.on_message(filters.command('addpr') & filters.private)
-async def add_premium(client: Client, message: Message):
-    if message.from_user.id != ADMINS:
-        return await message.reply("You don't have permission to add premium users.")
-
-    try:
-        command_parts = message.text.split()
-        target_user_id = int(command_parts[1])
-        duration_in_days = int(command_parts[2])
-        await add_premium_user(target_user_id, duration_in_days)
-        await message.reply(f"User {target_user_id} added to premium for {duration_in_days} days.")
-    except Exception as e:
-        await message.reply(f"Error: {str(e)}")
-
-# Add /removepr command for admins to remove premium subscription
-@Bot.on_message(filters.private & filters.command('removepr') & filters.user(ADMINS))
-#@Bot.on_message(filters.command('removepr') & filters.private)
-async def remove_premium(client: Client, message: Message):
-    if message.from_user.id != ADMINS:
-        return await message.reply("You don't have permission to remove premium users.")
-
-    try:
-        command_parts = message.text.split()
-        target_user_id = int(command_parts[1])
-        await remove_premium_user(target_user_id)
-        await message.reply(f"User {target_user_id} removed from premium.")
-    except Exception as e:
-        await message.reply(f"Error: {str(e)}")
-"""
 
 # Add /addpr command for admins to add premium subscription
 @Bot.on_message(filters.private & filters.command('addpr') & filters.user(ADMINS))
@@ -88,18 +52,12 @@ async def remove_premium(bot: Bot, message: Message):  # Changed `client: Client
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
 
-@Bot.on_message(filters.private & filters.incoming)
-async def useless(_,message: Message):
-    if USER_REPLY_TEXT:
-        await message.reply(USER_REPLY_TEXT)
 
 
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import time
 
 # Modify the /myplan command to show user subscription status
 @Bot.on_message(filters.command('myplan') & filters.private)
-async def my_plan(client: Client, message: Message):
+async def my_plan(bot: Bot, message: Message):
     is_premium, expiry_time = await get_user_subscription(message.from_user.id)
     
     if is_premium:
@@ -125,7 +83,7 @@ async def my_plan(client: Client, message: Message):
 
 # Modify the /plans command to show available subscription plans with payment options
 @Bot.on_message(filters.command('plans') & filters.private)
-async def show_plans(client: Client, message: Message):
+async def show_plans(bot: Bot, message: Message):
     plans_text = """
 <b>Available Subscription Plans:</b>
 
@@ -153,9 +111,9 @@ To subscribe, click the "Pay via UPI" button below.
 
 # Modify the /upi command to show QR and payment options with buttons
 @Bot.on_message(filters.command('upi') & filters.private)
-async def upi_info(client: Client, message: Message):
+async def upi_info(bot: Bot, message: Message):
     # Send payment QR image with a caption
-    await client.send_photo(
+    await bot.send_photo(
         chat_id=message.chat.id,
         photo=PAYMENT_QR,  # URL or local path to the QR image
         caption=PAYMENT_TEXT,
@@ -167,14 +125,19 @@ async def upi_info(client: Client, message: Message):
 
 # Callback queries for button actions
 @Bot.on_callback_query(filters.regex("upi_info"))
-async def show_upi_info(client: Client, callback_query: CallbackQuery):
+async def show_upi_info(bot: Bot, callback_query: CallbackQuery):
     # Resend the same UPI information as in /upi command
-    await upi_info(client, callback_query.message)
+    await upi_info(bot, callback_query.message)
 
 @Bot.on_callback_query(filters.regex("show_plans"))
-async def show_subscription_plans(client: Client, callback_query: CallbackQuery):
+async def show_subscription_plans(bot: Bot, callback_query: CallbackQuery):
     # Resend the same plan information as in /plans command
-    await show_plans(client, callback_query.message)
+    await show_plans(bot, callback_query.message)
 
 
+@Bot.on_message(filters.private & filters.incoming)
+async def useless(_,message: Message):
+    if USER_REPLY_TEXT:
+        await message.reply(USER_REPLY_TEXT)
+        
 # https://t.me/Ultroid_Official/524
