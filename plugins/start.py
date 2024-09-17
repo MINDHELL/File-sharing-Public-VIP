@@ -292,7 +292,7 @@ Unsuccessful: <code>{unsuccessful}</code></b>"""
         msg = await message.reply(REPLY_ERROR)
         await asyncio.sleep(8)
         await msg.delete()
-
+"""
 # Add /addpr command for admins to add premium subscription
 @Bot.on_message(filters.command('addpr') & filters.private)
 async def add_premium(client: Client, message: Message):
@@ -321,6 +321,7 @@ async def remove_premium(client: Client, message: Message):
         await message.reply(f"User {target_user_id} removed from premium.")
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
+"""
 
 # Add /myplan command for users to check their premium subscription status
 @Bot.on_message(filters.command('myplan') & filters.private)
@@ -338,6 +339,7 @@ async def my_plan(client: Client, message: Message):
 async def show_plans(client: Client, message: Message):
     plans_text = """
 Available Subscription Plans:
+
 1. 7 Days Premium - $5
 2. 30 Days Premium - $15
 3. 90 Days Premium - $35
