@@ -53,10 +53,7 @@ async def remove_premium(bot: Bot, message: Message):  # Changed `client: Client
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
 
-
-
-
-# Modify the /myplan command to show user subscription status
+# /myplan command for user subscription status
 @Bot.on_message(filters.command('myplan') & filters.private)
 async def my_plan(bot: Bot, message: Message):
     is_premium, expiry_time = await get_user_subscription(message.from_user.id)
@@ -66,7 +63,6 @@ async def my_plan(bot: Bot, message: Message):
         days_left = int(time_left / 86400)
         response_text = f"✅ Your premium subscription is active. Time left: {days_left} days."
         
-        # Buttons for upgrading or contacting support
         buttons = InlineKeyboardMarkup(
             [[InlineKeyboardButton("Upgrade Plan", callback_data="show_plans")],
              [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
@@ -74,7 +70,6 @@ async def my_plan(bot: Bot, message: Message):
     else:
         response_text = "❌ You are not a premium user."
         
-        # Buttons for viewing available plans and contacting support
         buttons = InlineKeyboardMarkup(
             [[InlineKeyboardButton("View Plans", callback_data="show_plans")],
              [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
@@ -82,7 +77,7 @@ async def my_plan(bot: Bot, message: Message):
 
     await message.reply(response_text, reply_markup=buttons)
 
-# Modify the /plans command to show available subscription plans with payment options
+# /plans command to show subscription plans
 @Bot.on_message(filters.command('plans') & filters.private)
 async def show_plans(bot: Bot, message: Message):
     plans_text = """
@@ -97,12 +92,9 @@ async def show_plans(bot: Bot, message: Message):
 - No need for verification
 - Direct access to files
 - Ad-free experience
-- Full admin support
-- Fast processing
 
 To subscribe, click the "Pay via UPI" button below.
 """
-    # Adding buttons for payment and contacting the owner
     buttons = InlineKeyboardMarkup(
         [[InlineKeyboardButton("Pay via UPI", callback_data="upi_info")],
          [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
@@ -110,13 +102,12 @@ To subscribe, click the "Pay via UPI" button below.
 
     await message.reply(plans_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
 
-# Modify the /upi command to show QR and payment options with buttons
+# /upi command to show payment QR and options
 @Bot.on_message(filters.command('upi') & filters.private)
 async def upi_info(bot: Bot, message: Message):
-    # Send payment QR image with a caption
     await bot.send_photo(
         chat_id=message.chat.id,
-        photo=PAYMENT_QR,  # URL or local path to the QR image
+        photo=PAYMENT_QR,
         caption=PAYMENT_TEXT,
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(
@@ -124,16 +115,6 @@ async def upi_info(bot: Bot, message: Message):
         )
     )
 
-# Callback queries for button actions
-@Bot.on_callback_query(filters.regex("upi_info"))
-async def show_upi_info(bot: Bot, callback_query: CallbackQuery):
-    # Resend the same UPI information as in /upi command
-    await upi_info(bot, callback_query.message)
-
-@Bot.on_callback_query(filters.regex("show_plans"))
-async def show_subscription_plans(bot: Bot, callback_query: CallbackQuery):
-    # Resend the same plan information as in /plans command
-    await show_plans(bot, callback_query.message)
 
 
 @Bot.on_message(filters.private & filters.incoming)
