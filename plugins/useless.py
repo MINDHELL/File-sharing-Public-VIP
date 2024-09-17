@@ -108,7 +108,7 @@ To subscribe, click the "Pay via UPI" button below.
          [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
     )
 
-    await message.reply(plans_text, reply_markup=buttons, parse_mode='HTML')
+    await message.reply(plans_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
 
 # Modify the /upi command to show QR and payment options with buttons
 @Bot.on_message(filters.command('upi') & filters.private)
@@ -118,7 +118,7 @@ async def upi_info(bot: Bot, message: Message):
         chat_id=message.chat.id,
         photo=PAYMENT_QR,  # URL or local path to the QR image
         caption=PAYMENT_TEXT,
-        parse_mode='HTML',
+        parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("Contact Owner", url=f"https://t.me/{OWNER}")]]
         )
