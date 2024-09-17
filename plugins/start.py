@@ -323,7 +323,7 @@ async def remove_premium(client: Client, message: Message):
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
 """
-
+'''
 # Add /myplan command for users to check their premium subscription status
 @Bot.on_message(filters.command('myplan') & filters.private)
 async def my_plan(client: Client, message: Message):
@@ -361,3 +361,4 @@ After payment, contact the bot admin to activate your premium subscription.
 """
     await message.reply(upi_text)
 
+'''
