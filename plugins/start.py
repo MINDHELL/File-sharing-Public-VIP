@@ -158,7 +158,8 @@ async def start_command(client: Client, message: Message):
                 except:
                     pass
 
-        elif verify_status['is_verified']:
+        elif (verify_status['is_verified'] or premium_status):
+        #elif verify_status['is_verified']:
             reply_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("About Me", callback_data="about"),
                   InlineKeyboardButton("Close", callback_data="close")]]
