@@ -12,7 +12,7 @@ API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
  
 BAN = int(os.environ.get("BAN", "1198543450")) #Owner user id
 OWNER = os.environ.get("OWNER", "PhDLust") #Owner username
-OWNER_ID = int(os.environ.get("OWNER_ID", "6695586027")) #Owner user id
+OWNER_ID = int(os.environ.get("OWNER_ID", "7131513396")) #Owner user id
 SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "ULTROIDOFFICIAL_CHAT") # WITHOUR @
 CHANNEL = os.environ.get("CHANNEL", "ULTROID_OFFICIAL") # WITHOUR @
 
@@ -50,15 +50,8 @@ TUT_VID = os.environ.get("TUT_VID", "https://t.me/Ultroid_Official/18")
 
 # ignore this one
 SECONDS = int(os.getenv("SECONDS", "200")) # auto delete in seconds
-
-
-
 PORT = os.environ.get("PORT", "8080")
 TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "4"))
-
-
-
-
 START_MSG = os.environ.get("START_MESSAGE", "Hello {first}\n\nI can store private files in Specified Channel and other users can access it from special link.")
 
 try:
