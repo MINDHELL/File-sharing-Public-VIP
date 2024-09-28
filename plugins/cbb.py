@@ -8,8 +8,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from pyrogram import __version__, Client
 from pyrogram.enums import ParseMode
 from config import OWNER_ID, ADMINS, CHANNEL, SUPPORT_GROUP, OWNER
-from plugins.useless import *
-
+from plugins.cmd import *
 
 # Callback query handler
 @Bot.on_callback_query()
