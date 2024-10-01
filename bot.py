@@ -119,6 +119,19 @@ class Bot(Client):
     async def stop(self, *args):
         await super().stop()
         self.LOGGER(__name__).info("Bot stopped , https://t.me/ultroid_official.")
+
+    async def check_premium_expiry():
+           while True:
+               current_time = time.time()
+               expired_users = await premium_users_collection.find({"expiry_time": {"$lte": current_time}}).to_list(length=None)
+               for user in expired_users:
+                   await remove_premium_user(user['user_id'])
+                   logger.info(f"Premium expired for user {user['user_id']}.")
+               await asyncio.sleep(3600)  # Check every hour
+
+    Bot.add_task(check_premium_expiry())
+
+
             
 
 
