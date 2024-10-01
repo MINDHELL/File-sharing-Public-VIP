@@ -4,7 +4,7 @@ from pyrogram import __version__, Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import ParseMode
 from database.database import full_userbase
-from plugins.start import *
+from plugins.start import get_today_token_count, get_total_token_count, get_user_token_count
 from bot import Bot
 from config import OWNER_ID, ADMINS, CHANNEL, SUPPORT_GROUP, OWNER
 from plugins.cmd import *
