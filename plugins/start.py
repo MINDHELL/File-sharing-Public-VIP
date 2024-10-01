@@ -36,6 +36,8 @@ from shortzy import Shortzy
 import pytz
 from motor.motor_asyncio import AsyncIOMotorClient
 
+START_COMMAND_LIMIT = 15
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,63 @@ async def get_user_token_count(user_id: int):
     return doc['user_tokens'] if doc and 'user_tokens' in doc else 0
 
 
+# Initialize Shortzy
+shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def get_shortlink(url, api, link):
+    try:
+        verification_link = await shortzy.convert(link)
+        return verification_link
+    except Exception as e:
+        logger.error(f"Error generating short link: {str(e)}")
+        return link
+
+async def delete_message_after_delay(message: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
+
+@Client.on_message(filters.command('check') & filters.private)
+async def check_command(client: Client, message: Message):
+    user_id = message.from_user.id
+
+    try:
+        user_limit = await get_user_limit(user_id)
+        limit_message = await message.reply_text(f"Your current limit is {user_limit}.")
+        asyncio.create_task(delete_message_after_delay(limit_message, AUTO_DELETE_DELAY))
+    except Exception as e:
+        logger.error(f"Error in check_command: {e}")
+        error_message = await message.reply_text("An error occurred while checking your limit.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+		
+@Client.on_message(filters.command('count') & filters.private)
+async def count_command(client: Client, message: Message):
+    try:
+        # Get the count of users who used a token in the last 24 hours
+        last_24h_count = await get_verification_count("24h")
+
+        # Get the count of users who used a token today
+        today_count = await get_verification_count("today")
+
+        count_message = (
+            f"Token usage stats:\n"
+            f"Last 24 hours: {last_24h_count} users\n"
+            f"Today's token users: {today_count} users"
+        )
+        
+        response_message = await message.reply_text(count_message)
+        asyncio.create_task(delete_message_after_delay(response_message, AUTO_DELETE_DELAY))
+
+    except Exception as e:
+        logger.error(f"Error in count_command: {e}")
+        error_message = await message.reply_text("An error occurred while retrieving count data.")
+        asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
 #limit based
 @Client.on_message(filters.command('start') & filters.private)
