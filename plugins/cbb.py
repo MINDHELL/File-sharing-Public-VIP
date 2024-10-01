@@ -1,12 +1,11 @@
 ﻿# https://t.me/Ultroid_Official/524
 
-
-
-
-from bot import Bot
+from pyrogram import __version__, Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram import __version__, Client
 from pyrogram.enums import ParseMode
+from database.database import full_userbase
+from plugins.start import get_today_token_count, get_total_token_count, get_user_token_count
+from bot import Bot
 from config import OWNER_ID, ADMINS, CHANNEL, SUPPORT_GROUP, OWNER
 from plugins.cmd import *
 
@@ -41,4 +40,50 @@ async def cb_handler(client: Bot, query: CallbackQuery):
     elif data == "show_plans":
         await show_plans(client, query.message)
 
+    elif data == "check_tokens":
+        user_id = query.from_user.id
+        is_admin = user_id in ADMINS
+
+        # Fetch token counts
+        today_tokens = await get_today_token_count()
+        total_tokens = await get_total_token_count()
+        user_tokens = await get_user_token_count(user_id)
+
+        if is_admin:
+            # For admins, optionally display more detailed stats
+            users = await full_userbase()
+            user_token_details = ""
+            for user in users[:100]:  # Limit to first 100 users for brevity
+                tokens = await get_user_token_count(user)
+                user_token_details += f"User ID: {user} - Tokens: {tokens}\n"
+            response = (
+                f"<b>🔹 Admin Token Statistics 🔹</b>\n\n"
+                f"<b>Today's Token Count:</b> {today_tokens}\n"
+                f"<b>Total Token Count:</b> {total_tokens}\n\n"
+                f"<b>Top Users:</b>\n{user_token_details}"
+            )
+        else:
+            # For regular users
+            response = (
+                f"<b>📊 Your Token Statistics 📊</b>\n\n"
+                f"<b>Today's Token Count:</b> {today_tokens}\n"
+                f"<b>Total Token Count:</b> {total_tokens}\n"
+                f"<b>Your Token Count:</b> {user_tokens}"
+            )
+
+        await query.answer()
+        await query.message.edit_text(
+            text=response,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Close", callback_data="close")]]
+            )
+        )
+
 # https://t.me/Ultroid_Official/524
+
+
+# ultroidofficial : YT
+
+
+
