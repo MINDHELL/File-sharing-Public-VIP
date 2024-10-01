@@ -181,14 +181,21 @@ async def count_command(client: Client, message: Message):
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
-    id = message.from_user.id
     UBAN = BAN  # Owner's ID
 
-    # Check if the user is the owner
+    # Check if the user is the owner (UBAN)
     if user_id == UBAN:
         await message.reply("You are the U-BAN! Additional actions can be added here.")
         return
 
+    user_id = message.from_user.id
+    user_data = users_collection.find_one({"user_id": user_id})
+
+    if not user_data:
+        users_collection.insert_one({"user_id": user_id, "start_count": 0, "current_channel_index": 0})
+
+    current_channel = await get_current_channel(user_id)
+    start_count = await get_start_count(user_id)
     # Register the user if not present
     if not await present_user(user_id):
         try:
@@ -206,7 +213,7 @@ async def start_command(client: Client, message: Message):
     user_limit = user_data.get("limit", START_COMMAND_LIMIT)
     previous_token = user_data.get("previous_token")
 
-    premium_status = await is_premium_user(user_id)
+    premium_status = await is_premium_user(user_id)  # Check if user is premium
     verify_status = await get_verify_status(user_id)
 
     # Generate a new token if not present
@@ -278,7 +285,7 @@ async def start_command(client: Client, message: Message):
         asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
         return
 
-    # Deduct 1 from the user's limit only if not premium
+    # Deduct 1 from the user's limit only if they are not premium
     if not premium_status:
         await update_user_limit(user_id, user_limit - 1)
 
@@ -292,14 +299,14 @@ async def start_command(client: Client, message: Message):
 
             ids = []
             if len(arguments) == 3:
-                start = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))  # Adjust if necessary
-                end = int(int(arguments[2]) / abs(YOUR_CHANNEL_ID))
+                start = int(int(arguments[1]) / abs(client.db_channel.id))  # Adjust if necessary
+                end = int(int(arguments[2]) / abs(client.db_channel.id))
                 if start <= end:
                     ids = list(range(start, end + 1))
                 else:
                     ids = list(range(start, end - 1, -1))
             elif len(arguments) == 2:
-                single_id = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))
+                single_id = int(int(arguments[1]) / abs(client.db_channel.id))
                 ids = [single_id]
             else:
                 logger.error("Invalid number of arguments in decoded string.")
