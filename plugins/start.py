@@ -119,12 +119,8 @@ async def get_user_token_count(user_id: int):
     return doc['user_tokens'] if doc and 'user_tokens' in doc else 0
 
 
-# Initialize Shortzy
-shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+shortzy = Shortzy(api_key=SHORTLINK_API, base_site=SHORTLINK_URL)
 
 async def get_shortlink(url, api, link):
     try:
