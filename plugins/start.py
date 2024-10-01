@@ -8,12 +8,10 @@ import random
 import re
 import string
 import time
-
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
-
 from bot import Bot
 from config import (
     ADMINS,
@@ -35,6 +33,16 @@ from config import (
 from helper_func import subscribed, encode, decode, get_messages, get_shortlink, get_verify_status, update_verify_status, get_exp_time
 from database.database import add_user, del_user, full_userbase, present_user
 from shortzy import Shortzy
+import pytz
+from motor.motor_asyncio import AsyncIOMotorClient
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+mongo_client = AsyncIOMotorClient(DB_URI)
+db = mongo_client[DB_NAME]  # Replace with your database name
+phdlust = db['tokens']  # Collection for token counts
+tz = pytz.timezone('Asia/Kolkata')
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -67,130 +75,246 @@ async def is_premium_user(user_id):
         return True
     return False
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
+# Helper Functions for Token Counting
+async def increment_token_count(user_id: int):
+    """Increments the total token count and the user's token count."""
+    today = datetime.now(tz).strftime('%Y-%m-%d')
+    # Increment total tokens for today
+    await phdlust.update_one(
+        {'date': today},
+        {'$inc': {'today_tokens': 1, 'total_tokens': 1}},
+        upsert=True
+    )
+    # Increment user's token count
+    await phdlust.update_one(
+        {'user_id': user_id},
+        {'$inc': {'user_tokens': 1}},
+        upsert=True
+    )
+
+async def get_today_token_count():
+    """Retrieves today's total token count."""
+    today = datetime.now(tz).strftime('%Y-%m-%d')
+    doc = await phdlust.find_one({'date': today})
+    return doc['today_tokens'] if doc and 'today_tokens' in doc else 0
+
+async def get_total_token_count():
+    """Retrieves the total token count."""
+    pipeline = [
+        {
+            '$group': {
+                '_id': None,
+                'total': {'$sum': '$total_tokens'}
+            }
+        }
+    ]
+    result = await phdlust.aggregate(pipeline).to_list(length=1)
+    return result[0]['total'] if result else 0
+
+async def get_user_token_count(user_id: int):
+    """Retrieves the token count for a specific user."""
+    doc = await phdlust.find_one({'user_id': user_id})
+    return doc['user_tokens'] if doc and 'user_tokens' in doc else 0
+
+
+
+#limit based
+@Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
+    user_id = message.from_user.id
     id = message.from_user.id
-    UBAN = BAN  # Fetch the owner's ID from config
+    UBAN = BAN  # Owner's ID
 
     # Check if the user is the owner
-    if id == UBAN:
+    if user_id == UBAN:
         await message.reply("You are the U-BAN! Additional actions can be added here.")
+        return
 
-    else:
-        if not await present_user(id):
-            try:
-                await add_user(id)
-            except:
-                pass
-                
-        premium_status = await is_premium_user(id)
-        
-        verify_status = await get_verify_status(id)
-        if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-            await update_verify_status(id, is_verified=False)
+    # Register the user if not present
+    if not await present_user(user_id):
+        try:
+            await add_user(user_id)
+        except Exception as e:
+            logger.error(f"Error adding user {user_id}: {e}")
 
-        if "verify_" in message.text:
-            _, token = message.text.split("_", 1)
-            if verify_status['verify_token'] != token:
-                return await message.reply("Your token is invalid or Expired. Try again by clicking /start")
-            await update_verify_status(id, is_verified=True, verified_time=time.time())
-            if verify_status["link"] == "":
-                reply_markup = None
-            await message.reply(f"Your token successfully verified and valid for: 24 Hour", reply_markup=reply_markup, protect_content=False, quote=True)
-    
-        elif len(message.text) > 7 and (verify_status['is_verified'] or premium_status):
-            try:
-                base64_string = message.text.split(" ", 1)[1]
-            except:
-                return
-            _string = await decode(base64_string)
-            argument = _string.split("-")
-            if len(argument) == 3:
-                try:
-                    start = int(int(argument[1]) / abs(client.db_channel.id))
-                    end = int(int(argument[2]) / abs(client.db_channel.id))
-                except:
-                    return
+    # Retrieve user data
+    user_data = await user_collection.find_one({"_id": user_id})
+    if not user_data:
+        logger.error(f"User data not found for user_id: {user_id}")
+        await message.reply("An error occurred. Please try again later.")
+        return
+
+    user_limit = user_data.get("limit", START_COMMAND_LIMIT)
+    previous_token = user_data.get("previous_token")
+
+    premium_status = await is_premium_user(user_id)
+    verify_status = await get_verify_status(user_id)
+
+    # Generate a new token if not present
+    if not previous_token:
+        previous_token = str(uuid.uuid4())
+        await user_collection.update_one(
+            {"_id": user_id},
+            {"$set": {"previous_token": previous_token}},
+            upsert=True
+        )
+
+    # Generate the verification link
+    verification_link = f"https://t.me/{CLIENT_USERNAME}?start=verify_{previous_token}"
+    shortened_link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verification_link)
+
+    # Check if the user is providing a verification token
+    if len(message.text.split()) > 1 and "verify_" in message.text:
+        provided_token = message.text.split("verify_", 1)[1]
+        if provided_token == previous_token:
+            # Verification successful, increase limit
+            new_limit = user_limit + LIMIT_INCREASE_AMOUNT
+            await update_user_limit(user_id, new_limit)
+            await log_verification(user_id)
+            await increment_token_count(user_id)
+            confirmation_message = await message.reply_text(
+                "Your limit has been successfully increased by 10! Use /check to view your credits."
+            )
+            asyncio.create_task(delete_message_after_delay(confirmation_message, AUTO_DELETE_DELAY))
+            return
+        else:
+            error_message = await message.reply_text("Invalid verification token. Please try again.")
+            asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
+            return
+
+    # If the user is not premium and the limit is reached, prompt to increase limit
+    if not premium_status and user_limit <= 0:
+        limit_message = (
+            "Your limit has been reached. Use /check to view your credits.\n"
+            "Use the following link to increase your limit:"
+        )
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text='Increase LIMIT',
+                    url=shortened_link
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text='Try Again',
+                    url=f"https://t.me/{CLIENT_USERNAME}?start=default"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text='Verification Tutorial',
+                    url=TUT_VID
+                )
+            ]
+        ]
+
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await message.reply(
+            limit_message,
+            reply_markup=reply_markup,
+            protect_content=False,
+            quote=True
+        )
+        asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
+        return
+
+    # Deduct 1 from the user's limit only if not premium
+    if not premium_status:
+        await update_user_limit(user_id, user_limit - 1)
+
+    # Handle the rest of the start command logic
+    text = message.text
+    if len(text.split()) > 1 and (verify_status['is_verified'] or premium_status):
+        try:
+            base64_string = text.split(" ", 1)[1]
+            decoded_string = await decode(base64_string)
+            arguments = decoded_string.split("-")
+
+            ids = []
+            if len(arguments) == 3:
+                start = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))  # Adjust if necessary
+                end = int(int(arguments[2]) / abs(YOUR_CHANNEL_ID))
                 if start <= end:
-                    ids = range(start, end+1)
+                    ids = list(range(start, end + 1))
                 else:
-                    ids = []
-                    i = start
-                    while True:
-                        ids.append(i)
-                        i -= 1
-                        if i < end:
-                            break
-            elif len(argument) == 2:
-                try:
-                    ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-                except:
-                    return
+                    ids = list(range(start, end - 1, -1))
+            elif len(arguments) == 2:
+                single_id = int(int(arguments[1]) / abs(YOUR_CHANNEL_ID))
+                ids = [single_id]
+            else:
+                logger.error("Invalid number of arguments in decoded string.")
+                return
+
             temp_msg = await message.reply("Please wait...")
             try:
                 messages = await get_messages(client, ids)
-            except:
+            except Exception as e:
                 await message.reply_text("Something went wrong..!")
+                logger.error(f"Error getting messages: {e}")
                 return
-            await temp_msg.delete()
-            
-            snt_msgs = []
-            
-            for msg in messages:
-                if bool(CUSTOM_CAPTION) & bool(msg.document):
-                    caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, filename=msg.document.file_name)
-                else:
-                    caption = "" if not msg.caption else msg.caption.html
 
-                if DISABLE_CHANNEL_BUTTON:
-                    reply_markup = msg.reply_markup
+            await temp_msg.delete()
+
+            for msg in messages:
+                if msg.document:
+                    caption = CUSTOM_CAPTION.format(
+                        previouscaption=msg.caption.html if msg.caption else "",
+                        filename=msg.document.file_name
+                    )
                 else:
-                    reply_markup = None
+                    caption = msg.caption.html if msg.caption else ""
+
+                reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
 
                 try:
-                    snt_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                    sent_message = await msg.copy(
+                        chat_id=user_id,
+                        caption=caption,
+                        parse_mode="html",
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
                     await asyncio.sleep(0.5)
-                    snt_msgs.append(snt_msg)
                 except FloodWait as e:
+                    logger.warning(f"FloodWait encountered. Sleeping for {e.x} seconds.")
                     await asyncio.sleep(e.x)
-                    snt_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-                    snt_msgs.append(snt_msg)
-                except:
-                    pass
-
-        elif (verify_status['is_verified'] or premium_status):
-        #elif verify_status['is_verified']:
-            reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("About Me", callback_data="about"),
-                  InlineKeyboardButton("Close", callback_data="close")]]
-            )
-            await message.reply_text(
-                text=START_MSG.format(
-                    first=message.from_user.first_name,
-                    last=message.from_user.last_name,
-                    username=None if not message.from_user.username else '@' + message.from_user.username,
-                    mention=message.from_user.mention,
-                    id=message.from_user.id
-                ),
-                reply_markup=reply_markup,
-                disable_web_page_preview=True,
-                quote=True
-            )
-
-        else:
-            verify_status = await get_verify_status(id)
-            if IS_VERIFY and not verify_status['is_verified']:
-                short_url = f"adrinolinks.in"
-                # TUT_VID = f"https://t.me/ultroid_official/18"
-                token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-                await update_verify_status(id, verify_token=token, link="")
-                link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API,f'https://telegram.dog/{client.username}?start=verify_{token}')
-                btn = [
-                    [InlineKeyboardButton("Click here", url=link)],
-                    [InlineKeyboardButton('How to use the bot', url=TUT_VID)]
+                    sent_message = await msg.copy(
+                        chat_id=user_id,
+                        caption=caption,
+                        parse_mode="html",
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                except Exception as e:
+                    logger.error(f"Error copying message: {e}")
+                    continue
+            return
+    else:
+        # Send welcome message with buttons
+        reply_markup = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("😊 About Me", callback_data="about"),
+                    InlineKeyboardButton("🔒 Close", callback_data="close")
                 ]
-                await message.reply(f"Your Ads token is expired, refresh your token and try again.\n\nToken Timeout: {get_exp_time(VERIFY_EXPIRE)}\n\nWhat is the token?\n\nThis is an ads token. If you pass 1 ad, you can use the bot for 24 Hour after passing the ad.", reply_markup=InlineKeyboardMarkup(btn), protect_content=False, quote=True)
-
+            ]
+        )
+        welcome_text = (
+            f"Hello, {message.from_user.first_name}!\n"
+            f"Your ID: {message.from_user.id}\n"
+            f"Username: @{message.from_user.username if message.from_user.username else 'N/A'}"
+        )
+        welcome_message = await message.reply_text(
+            text=welcome_text,
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+            quote=True
+        )
+        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+        return
 
     
 #=====================================================================================##
