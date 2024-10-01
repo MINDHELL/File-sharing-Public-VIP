@@ -129,7 +129,7 @@ class Bot(Client):
                    logger.info(f"Premium expired for user {user['user_id']}.")
                await asyncio.sleep(3600)  # Check every hour
 
-    Bot.add_task(check_premium_expiry())
+    app.add_task(check_premium_expiry())
 
 
             
