@@ -201,7 +201,6 @@ async def count_command(client: Client, message: Message):
         error_message = await message.reply_text("An error occurred while retrieving count data.")
         asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
 
-# /start Command Handler
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
@@ -318,7 +317,7 @@ async def start_command(client: Client, message: Message):
 
     # Handle the rest of the start command logic
     text = message.text
-        if len(message.command) > 1 and (verify_status['is_verified'] or premium_status):
+    if len(message.command) > 1 and (verify_status['is_verified'] or premium_status):
         try:
             base64_string = message.command[1]
             decoded_string = await decode(base64_string)
@@ -327,15 +326,16 @@ async def start_command(client: Client, message: Message):
             ids = []
             if len(arguments) == 3:
                 # Ensure client.db_channel.id is defined
-                channel_id = client.db_channel.id   # Define your channel ID as an integer
-                start = int(int(arguments[1]) / abs(client.db_channel.id))
-                end = int(int(arguments[2]) / abs(client.db_channel.id))
+                # Replace 'client.db_channel.id' with actual channel ID
+                channel_id = YOUR_CHANNEL_ID  # Define your channel ID as an integer
+                start = int(int(arguments[1]) / abs(channel_id))
+                end = int(int(arguments[2]) / abs(channel_id))
                 if start <= end:
                     ids = list(range(start, end + 1))
                 else:
                     ids = list(range(start, end - 1, -1))
             elif len(arguments) == 2:
-                single_id = int(int(arguments[1]) / abs(client.db_channel.id))
+                single_id = int(int(arguments[1]) / abs(channel_id))
                 ids = [single_id]
             else:
                 logger.error("Invalid number of arguments in decoded string.")
@@ -386,9 +386,6 @@ async def start_command(client: Client, message: Message):
                 except Exception as e:
                     logger.error(f"Error copying message: {e}")
                     continue
-        except Exception as e:
-            logger.error(f"Error processing command: {e}")
-            await message.reply_text("❌ An error occurred while processing your request.")
             return
     else:
         # Send welcome message with buttons
@@ -413,6 +410,7 @@ async def start_command(client: Client, message: Message):
         )
         asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
         return
+
 
 
 # Handle Callback Queries for Token Count
