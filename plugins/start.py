@@ -327,15 +327,15 @@ async def start_command(client: Client, message: Message):
             ids = []
             if len(arguments) == 3:
                 # Ensure client.db_channel.id is defined
-                channel_id = YOUR_CHANNEL_ID  # Define your channel ID as an integer
-                start = int(int(arguments[1]) / abs(channel_id))
-                end = int(int(arguments[2]) / abs(channel_id))
+                channel_id = client.db_channel.id   # Define your channel ID as an integer
+                start = int(int(arguments[1]) / abs(client.db_channel.id))
+                end = int(int(arguments[2]) / abs(client.db_channel.id))
                 if start <= end:
                     ids = list(range(start, end + 1))
                 else:
                     ids = list(range(start, end - 1, -1))
             elif len(arguments) == 2:
-                single_id = int(int(arguments[1]) / abs(channel_id))
+                single_id = int(int(arguments[1]) / abs(client.db_channel.id))
                 ids = [single_id]
             else:
                 logger.error("Invalid number of arguments in decoded string.")
