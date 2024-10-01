@@ -363,29 +363,28 @@ async def start_command(client: Client, message: Message):
                 reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
 
                 try:
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-                    await asyncio.sleep(0.5)
-                except FloodWait as e:
-                    logger.warning(f"FloodWait encountered. Sleeping for {e.x} seconds.")
-                    await asyncio.sleep(e.x)
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-                except Exception as e:
-                    logger.error(f"Error copying message: {e}")
-                    continue
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup,
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+            except Exception as e:
+                logger.error(f"Error copying message: {e}")
+                pass
         return
     else:
         reply_markup = InlineKeyboardMarkup(
