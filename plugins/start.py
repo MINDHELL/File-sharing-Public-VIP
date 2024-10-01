@@ -325,26 +325,73 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
 
 #=====================================================================================##
 
-    
-    
+# Credits
+# Bot Developed by @phdlust
+# GitHub: https://github.com/sahiildesai07
+# Telegram: https://t.me/ultroidxTeam
+# YouTube: https://www.youtube.com/@PhdLust
+
+
+# Handle Callback Queries for Token Count
+@Bot.on_callback_query(filters.regex(r"^check_tokens$"))
+async def check_tokens_callback(client: Client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    is_admin = user_id in ADMINS
+
+    # Fetch token counts
+    today_tokens = await get_today_token_count()
+    total_tokens = await get_total_token_count()
+    user_tokens = await get_user_token_count(user_id)
+
+    if is_admin:
+        # For admins, optionally display more detailed stats
+        users = await full_userbase()
+        user_token_details = ""
+        for user in users[:10]:  # Limit to first 10 users for brevity
+            tokens = await get_user_token_count(user)
+            user_token_details += f"User ID: {user} - Tokens: {tokens}\n"
+        response = (
+            f"<b>🔹 Admin Token Statistics 🔹</b>\n\n"
+            f"<b>Today's Token Count:</b> {today_tokens}\n"
+            f"<b>Total Token Count:</b> {total_tokens}\n\n"
+            f"<b>Top Users:</b>\n{user_token_details}"
+        )
+    else:
+        # For regular users
+        response = (
+            f"<b>📊 Your Token Statistics 📊</b>\n\n"
+            f"<b>Today's Token Count:</b> {today_tokens}\n"
+            f"<b>Total Token Count:</b> {total_tokens}\n"
+            f"<b>Your Token Count:</b> {user_tokens}"
+        )
+
+    await callback_query.answer()
+    await callback_query.message.edit_text(
+        text=response,
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Close", callback_data="close")]]
+        )
+    )
+
+
+# Existing /start Not Joined Handler
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
     buttons = [
         [
-            InlineKeyboardButton(text="Join Channel", url=client.invitelink),
-            #InlineKeyboardButton(text="Join Channel", url=client.invitelink2),
-        ],
-        [
-            InlineKeyboardButton(text="Join Channel", url=client.invitelink3),
-            #InlineKeyboardButton(text="Join Channel", url=client.invitelink4),
+            InlineKeyboardButton(
+                "Join Channel",
+                url=client.invitelink
+            )
         ]
     ]
     try:
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text = 'Try Again',
-                    url = f"https://t.me/{client.username}?start={message.command[1]}"
+                    text='Try Again',
+                    url=f"https://t.me/{client.username}?start={message.command[1]}"
                 )
             ]
         )
@@ -352,28 +399,32 @@ async def not_joined(client: Client, message: Message):
         pass
 
     await message.reply(
-        text = FORCE_MSG.format(
-                first = message.from_user.first_name,
-                last = message.from_user.last_name,
-                username = None if not message.from_user.username else '@' + message.from_user.username,
-                mention = message.from_user.mention,
-                id = message.from_user.id
-            ),
-        reply_markup = InlineKeyboardMarkup(buttons),
-        quote = True,
-        disable_web_page_preview = True
+        text=FORCE_MSG.format(
+            first=message.from_user.first_name,
+            last=message.from_user.last_name,
+            username=None if not message.from_user.username else '@' + message.from_user.username,
+            mention=message.from_user.mention,
+            id=message.from_user.id
+        ),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        quote=True,
+        disable_web_page_preview=True
     )
 
+WAIT_MSG = """"<b>Processing ...</b>"""
 
+REPLY_ERROR = """<code>Use this command as a replay to any telegram message with out any spaces.</code>"""
 
+# Existing /users Command for Admins
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
-async def get_users(client: Bot, message: Message):
+async def get_users(client: Client, message: Message):
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
     users = await full_userbase()
     await msg.edit(f"{len(users)} users are using this bot")
 
+# Existing /broadcast Command for Admins
 @Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
-async def send_text(client: Bot, message: Message):
+async def send_text(client: Client, message: Message):
     if message.reply_to_message:
         query = await full_userbase()
         broadcast_msg = message.reply_to_message
@@ -382,7 +433,7 @@ async def send_text(client: Bot, message: Message):
         blocked = 0
         deleted = 0
         unsuccessful = 0
-        
+
         pls_wait = await message.reply("<i>Broadcasting Message.. This will Take Some Time</i>")
         for chat_id in query:
             try:
@@ -402,7 +453,7 @@ async def send_text(client: Bot, message: Message):
                 unsuccessful += 1
                 pass
             total += 1
-        
+
         status = f"""<b><u>Broadcast Completed</u>
 
 Total Users: <code>{total}</code>
@@ -410,79 +461,64 @@ Successful: <code>{successful}</code>
 Blocked Users: <code>{blocked}</code>
 Deleted Accounts: <code>{deleted}</code>
 Unsuccessful: <code>{unsuccessful}</code></b>"""
-        
+
         return await pls_wait.edit(status)
 
     else:
         msg = await message.reply(REPLY_ERROR)
         await asyncio.sleep(8)
         await msg.delete()
-"""
-# Add /addpr command for admins to add premium subscription
-@Bot.on_message(filters.command('addpr') & filters.private)
-async def add_premium(client: Client, message: Message):
-    if message.from_user.id != ADMINS:
-        return await message.reply("You don't have permission to add premium users.")
 
-    try:
-        command_parts = message.text.split()
-        target_user_id = int(command_parts[1])
-        duration_in_days = int(command_parts[2])
-        await add_premium_user(target_user_id, duration_in_days)
-        await message.reply(f"User {target_user_id} added to premium for {duration_in_days} days.")
-    except Exception as e:
-        await message.reply(f"Error: {str(e)}")
+# Add a New Command /tokencount for Users and Admins
+@Bot.on_message(filters.command('tokencount') & filters.private)
+async def token_count_command(client: Client, message: Message):
+    user_id = message.from_user.id
+    is_admin = user_id in ADMINS
 
-# Add /removepr command for admins to remove premium subscription
-@Bot.on_message(filters.command('removepr') & filters.private)
-async def remove_premium(client: Client, message: Message):
-    if message.from_user.id != ADMINS:
-        return await message.reply("You don't have permission to remove premium users.")
+# Credits
+# Bot Developed by @phdlust
+# GitHub: https://github.com/sahiildesai07
+# Telegram: https://t.me/ultroidxTeam
+# YouTube: https://www.youtube.com/@PhdLust
 
-    try:
-        command_parts = message.text.split()
-        target_user_id = int(command_parts[1])
-        await remove_premium_user(target_user_id)
-        await message.reply(f"User {target_user_id} removed from premium.")
-    except Exception as e:
-        await message.reply(f"Error: {str(e)}")
-"""
-'''
-# Add /myplan command for users to check their premium subscription status
-@Bot.on_message(filters.command('myplan') & filters.private)
-async def my_plan(client: Client, message: Message):
-    is_premium, expiry_time = await get_user_subscription(message.from_user.id)
-    if is_premium:
-        time_left = expiry_time - time.time()
-        days_left = int(time_left / 86400)
-        await message.reply(f"Your premium subscription is active. Time left: {days_left} days.")
+    # Fetch token counts
+    today_tokens = await get_today_token_count()
+    total_tokens = await get_total_token_count()
+    user_tokens = await get_user_token_count(user_id)
+
+    if is_admin:
+        # For admins, optionally display more detailed stats
+        users = await full_userbase()
+        user_token_details = ""
+        for user in users[:10]:  # Limit to first 10 users for brevity
+            tokens = await get_user_token_count(user)
+            user_token_details += f"User ID: {user} - Tokens: {tokens}\n"
+        response = (
+            f"<b>🔹 Admin Token Statistics 🔹</b>\n\n"
+            f"<b>Today's Token Count:</b> {today_tokens}\n"
+            f"<b>Total Token Count:</b> {total_tokens}\n\n"
+            f"<b>Top Users:</b>\n{user_token_details}"
+        )
     else:
-        await message.reply("You are not a premium user.")
+        # For regular users
+        response = (
+            f"<b>📊 Your Token Statistics 📊</b>\n\n"
+            f"<b>Today's Token Count:</b> {today_tokens}\n"
+            f"<b>Total Token Count:</b> {total_tokens}\n"
+            f"<b>Your Token Count:</b> {user_tokens}"
+        )
 
-# Add /plans command to show available subscription plans
-@Bot.on_message(filters.command('plans') & filters.private)
-async def show_plans(client: Client, message: Message):
-    plans_text = """
-Available Subscription Plans:
+    await message.reply_text(
+        text=response,
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Close", callback_data="close")]]
+        )
+    )
 
-1. 7 Days Premium - $5
-2. 30 Days Premium - $15
-3. 90 Days Premium - $35
 
-Use /upi to make the payment.
-"""
-    await message.reply(plans_text)
-
-# Add /upi command to provide UPI payment details
-@Bot.on_message(filters.command('upi') & filters.private)
-async def upi_info(client: Client, message: Message):
-    upi_text = """
-To subscribe to premium, please make the payment via UPI.
-
-UPI ID: your-upi-id@bank
-
-After payment, contact the bot admin to activate your premium subscription.
-"""
-    await message.reply(upi_text)
-
-'''
+# Credits
+# Bot Developed by @phdlust
+# GitHub: https://github.com/sahiildesai07
+# Telegram: https://t.me/ultroidxTeam
+# YouTube: https://www.youtube.com/@PhdLust
