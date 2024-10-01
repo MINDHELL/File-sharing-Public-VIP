@@ -221,10 +221,9 @@ async def start_command(client: Client, message: Message):
             await message.reply("An error occurred while registering you. Please try again later.")
             return
 
-    # Retrieve user data
+    # Retrieve or initialize user data
     user_data = await users_collection.find_one({"user_id": user_id})
     if not user_data:
-        # Initialize user data if not present
         await users_collection.insert_one({
             "user_id": user_id,
             "limit": START_COMMAND_LIMIT,
@@ -254,11 +253,10 @@ async def start_command(client: Client, message: Message):
     verification_link = f"https://t.me/{CLIENT_USERNAME}?start=verify_{previous_token}"
     shortened_link = await get_shortlink_func(verification_link)
 
-    # Check if the user is providing a verification token
+    # Check for verification token
     if len(message.command) > 1 and "verify_" in message.command[1]:
         provided_token = message.command[1].split("verify_", 1)[1]
         if provided_token == previous_token:
-            # Verification successful, increase limit
             new_limit = user_limit + LIMIT_INCREASE_AMOUNT
             await update_user_limit(user_id, new_limit)
             await log_verification(user_id)
@@ -273,50 +271,28 @@ async def start_command(client: Client, message: Message):
             asyncio.create_task(delete_message_after_delay(error_message, AUTO_DELETE_DELAY))
             return
 
-    # If the user is not premium and the limit is reached, prompt to increase limit
+    # If user is not premium and limit is reached
     if not premium_status and user_limit <= 0:
         limit_message = (
             "⚠️ Your limit has been reached. Use /check to view your credits.\n"
             "🔗 Use the following link to increase your limit:"
         )
         buttons = [
-            [
-                InlineKeyboardButton(
-                    text='Increase LIMIT',
-                    url=shortened_link
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text='Try Again',
-                    url=f"https://t.me/{CLIENT_USERNAME}?start=default"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text='Verification Tutorial',
-                    url=TUT_VID
-                )
-            ]
+            [InlineKeyboardButton(text='Increase LIMIT', url=shortened_link)],
+            [InlineKeyboardButton(text='Try Again', url=f"https://t.me/{CLIENT_USERNAME}?start=default")],
+            [InlineKeyboardButton(text='Verification Tutorial', url=TUT_VID)]
         ]
-
         reply_markup = InlineKeyboardMarkup(buttons)
-        await message.reply(
-            limit_message,
-            reply_markup=reply_markup,
-            protect_content=False,
-            quote=True
-        )
+        await message.reply(limit_message, reply_markup=reply_markup, protect_content=False, quote=True)
         asyncio.create_task(delete_message_after_delay(message, AUTO_DELETE_DELAY))
         return
 
-    # Deduct 1 from the user's limit only if they are not premium
+    # Deduct 1 from the user's limit if not premium
     if not premium_status:
         await update_user_limit(user_id, user_limit - 1)
         logger.info(f"Deducted 1 from user {user_id}'s limit. New limit: {user_limit - 1}")
 
-    # Handle the rest of the start command logic
-    text = message.text
+    # Handle further processing based on command arguments
     if len(message.command) > 1 and (verify_status['is_verified'] or premium_status):
         try:
             base64_string = message.command[1]
@@ -324,16 +300,12 @@ async def start_command(client: Client, message: Message):
             arguments = decoded_string.split("-")
 
             ids = []
+            channel_id = client.db_channel.id  # Ensure this is defined
+
             if len(arguments) == 3:
-                # Ensure client.db_channel.id is defined
-                # Replace 'client.db_channel.id' with actual channel ID
-                channel_id = YOUR_CHANNEL_ID  # Define your channel ID as an integer
                 start = int(int(arguments[1]) / abs(channel_id))
                 end = int(int(arguments[2]) / abs(channel_id))
-                if start <= end:
-                    ids = list(range(start, end + 1))
-                else:
-                    ids = list(range(start, end - 1, -1))
+                ids = list(range(start, end + 1)) if start <= end else list(range(start, end - 1, -1))
             elif len(arguments) == 2:
                 single_id = int(int(arguments[1]) / abs(channel_id))
                 ids = [single_id]
@@ -342,73 +314,60 @@ async def start_command(client: Client, message: Message):
                 return
 
             temp_msg = await message.reply("⏳ Please wait while we process your request...")
-            try:
-                messages = await get_messages(client, ids)  # Ensure this function is defined
-            except Exception as e:
-                await message.reply_text("❌ Something went wrong..!")
-                logger.error(f"Error getting messages: {e}")
-                return
+            messages = await get_messages(client, ids)  # Ensure this function is defined
 
             await temp_msg.delete()
 
             for msg in messages:
-                if msg.document:
-                    caption = CUSTOM_CAPTION.format(
-                        previouscaption=msg.caption.html if msg.caption else "",
-                        filename=msg.document.file_name
-                    )
-                else:
-                    caption = msg.caption.html if msg.caption else ""
-
+                caption = (msg.caption.html if msg.caption else "") + (f"\n{msg.document.file_name}" if msg.document else "")
                 reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
 
                 try:
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
-                    protect_content=PROTECT_CONTENT
-                )
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-                await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
-                    protect_content=PROTECT_CONTENT
-                )
-                asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
-            except Exception as e:
-                logger.error(f"Error copying message: {e}")
-                pass
-        return
-    else:
-        reply_markup = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("😊 About Me", callback_data="about"),
-                    InlineKeyboardButton("🔒 Close", callback_data="close")
-                ]
-            ]
-        )
-        welcome_message = await message.reply_text(
-            text=START_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=reply_markup,
-            disable_web_page_preview=True,
-            quote=True
-        )
-        asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
-        return
+                    sent_message = await msg.copy(
+                        chat_id=message.from_user.id,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                    await asyncio.sleep(0.5)
+                except FloodWait as e:
+                    await asyncio.sleep(e.x)
+                    sent_message = await msg.copy(
+                        chat_id=message.from_user.id,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(delete_message_after_delay(sent_message, AUTO_DELETE_DELAY))
+                except Exception as e:
+                    logger.error(f"Error copying message: {e}")
+
+            return
+
+    # Default response for new users
+    reply_markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("😊 About Me", callback_data="about"),
+             InlineKeyboardButton("🔒 Close", callback_data="close")]
+        ]
+    )
+    welcome_message = await message.reply_text(
+        text=START_MSG.format(
+            first=message.from_user.first_name,
+            last=message.from_user.last_name,
+            username=f'@{message.from_user.username}' if message.from_user.username else None,
+            mention=message.from_user.mention,
+            id=message.from_user.id
+        ),
+        reply_markup=reply_markup,
+        disable_web_page_preview=True,
+        quote=True
+    )
+    asyncio.create_task(delete_message_after_delay(welcome_message, AUTO_DELETE_DELAY))
+
 
 
 
