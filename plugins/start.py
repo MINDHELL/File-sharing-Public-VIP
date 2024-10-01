@@ -386,24 +386,24 @@ async def start_command(client: Client, message: Message):
                 except Exception as e:
                     logger.error(f"Error copying message: {e}")
                     continue
-            return
+        return
     else:
-        # Send welcome message with buttons
         reply_markup = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("😊 About Me", url="https://t.me/YourUsername"),  # Replace with actual URL
+                    InlineKeyboardButton("😊 About Me", callback_data="about"),
                     InlineKeyboardButton("🔒 Close", callback_data="close")
                 ]
             ]
         )
-        welcome_text = (
-            f"👋 Hello, {message.from_user.first_name}!\n"
-            f"🔹 Your ID: {message.from_user.id}\n"
-            f"🔹 Username: @{message.from_user.username if message.from_user.username else 'N/A'}"
-        )
         welcome_message = await message.reply_text(
-            text=welcome_text,
+            text=START_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
             reply_markup=reply_markup,
             disable_web_page_preview=True,
             quote=True
