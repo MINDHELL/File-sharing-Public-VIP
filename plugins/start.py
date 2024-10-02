@@ -42,7 +42,7 @@ import pytz
 START_COMMAND_LIMIT = 15
 LIMIT_INCREASE_AMOUNT = 10
 AUTO_DELETE_DELAY = 60  # in seconds
-CLIENT_USERNAME = "YourBotUsername"  # Replace with your bot's username without '@'
+CLIENT_USERNAME = "Phdlust_bot"  # Replace with your bot's username without '@'
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
