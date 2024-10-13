@@ -48,7 +48,7 @@ scheduler.start()
 # MongoDB Helper Functions (For deletions)
 async def schedule_message_deletion(chat_id, message_id, delete_at):
     """Schedule the message to be deleted at a specified time."""
-    await db.deletions.insert_one({
+    db.deletions.insert_one({
         "chat_id": chat_id,
         "message_id": message_id,
         "delete_at": delete_at
@@ -58,7 +58,7 @@ async def schedule_message_deletion(chat_id, message_id, delete_at):
 async def delete_scheduled_messages():
     """Delete messages that are scheduled for deletion."""
     current_time = datetime.now()
-    deletions = await db.deletions.find({"delete_at": {"$lt": current_time}})  # Fetch messages scheduled for deletion
+    deletions = await db.deletions.find({"delete_at": {"$lt": current_time}}).to_list(length=None)  # Fetch messages scheduled for deletion
     messages_to_delete = []
     
     for deletion in deletions:
@@ -107,11 +107,10 @@ async def start_command(client: Client, message: Message):
     id = message.from_user.id
     UBAN = BAN  # Fetch the owner's ID from config
     
-    # Schedule the message for deletion 1 hour later
-    delete_time = datetime.now() + timedelta(hours=1)
+    # Schedule the message for deletion 10 minutes later
+    delete_time = datetime.now() + timedelta(minutes=10)  # Schedule for 10 minutes later
     await schedule_message_deletion(message.chat.id, message.id, delete_time)
-
-    await message.reply("Your message will be auto-deleted after 1 hour.")
+    await message.reply("Your message will be auto-deleted after 10 minutes.")
     
     # Check if the user is the owner
     if id == UBAN:
@@ -121,11 +120,11 @@ async def start_command(client: Client, message: Message):
         if not await present_user(id):
             try:
                 await add_user(id)
-            except:
-                pass
-                
+            except Exception as e:
+                print(f"Error adding user: {e}")
+
         premium_status = await is_premium_user(id)
-        
+             
         verify_status = await get_verify_status(id)
         if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
             await update_verify_status(id, is_verified=False)
