@@ -109,7 +109,8 @@ async def start_command(client: Client, message: Message):
     
     # Schedule the message for deletion 1 hour later
     delete_time = datetime.now() + timedelta(hours=1)
-    await schedule_message_deletion(message.chat.id, message.message_id, delete_time)
+    await schedule_message_deletion(message.chat.id, message.id, delete_time)
+
     await message.reply("Your message will be auto-deleted after 1 hour.")
     
     # Check if the user is the owner
