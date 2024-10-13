@@ -1,5 +1,6 @@
 # https://t.me/Ultroid_Official/524
 
+
 from aiohttp import web
 from plugins import web_server
 import pyromod.listen
@@ -118,15 +119,10 @@ class Bot(Client):
     async def stop(self, *args):
         await super().stop()
         self.LOGGER(__name__).info("Bot stopped , https://t.me/ultroid_official.")
+            
 
-    async def check_premium_expiry(self):
-        while True:
-            current_time = time.time()
-            expired_users = await premium_users_collection.find({"expiry_time": {"$lte": current_time}}).to_list(length=None)
-            for user in expired_users:
-                await remove_premium_user(user['user_id'])
-                self.LOGGER(__name__).info(f"Premium expired for user {user['user_id']}.")
-            await asyncio.sleep(3600)  # Check every hour
+
+
 
 
 # https://t.me/Ultroid_Official/524
