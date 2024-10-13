@@ -161,8 +161,11 @@ async def start_command(client: Client, message: Message):
         elif (verify_status['is_verified'] or premium_status):
         #elif verify_status['is_verified']:
             reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("About Me", callback_data="about"),
-                  InlineKeyboardButton("Close", callback_data="close")]]
+                [
+                    [InlineKeyboardButton("About Me", callback_data="about"),
+                     InlineKeyboardButton("Close", callback_data="close")],
+                    [[InlineKeyboardButton('✨ Premium', callback_data="upi_info")]
+                ]
             )
             await message.reply_text(
                 text=START_MSG.format(
@@ -188,7 +191,7 @@ async def start_command(client: Client, message: Message):
                 btn = [
                     [InlineKeyboardButton("Click here", url=link)],
                     [InlineKeyboardButton('How to use the bot', url=TUT_VID)],
-                    [InlineKeyboardButton('✨ Premium', url=upi_info)]
+                    [InlineKeyboardButton('✨ Premium', callback_data="upi_info")]
                 ]
                 await message.reply(f"Your Ads token is expired, refresh your token and try again.\n\nToken Timeout: {get_exp_time(VERIFY_EXPIRE)}\n\nWhat is the token?\n\nThis is an ads token. If you pass 1 ad, you can use the bot for 24 Hour after passing the ad.", reply_markup=InlineKeyboardMarkup(btn), protect_content=False, quote=True)
 
@@ -209,7 +212,7 @@ async def not_joined(client: Client, message: Message):
     buttons = [
         [
             InlineKeyboardButton(text="Join Channel", url=client.invitelink),
-            #InlineKeyboardButton(text="Join Channel", url=client.invitelink2),
+            InlineKeyboardButton(text="Join Channel", url=client.invitelink2),
         ],
         [
             InlineKeyboardButton(text="Join Channel", url=client.invitelink3),
