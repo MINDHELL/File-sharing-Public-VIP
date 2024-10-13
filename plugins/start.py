@@ -8,7 +8,8 @@ import random
 import re
 import string
 import time
-
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime, timedelta
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -39,6 +40,40 @@ from shortzy import Shortzy
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
+
+# Initialize the scheduler
+scheduler = AsyncIOScheduler()
+scheduler.start()
+
+# MongoDB Helper Functions (For deletions)
+async def schedule_message_deletion(chat_id, message_id, delete_at):
+    """Schedule the message to be deleted at a specified time."""
+    await db.deletions.insert_one({
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "delete_at": delete_at
+    })
+
+# Function to delete messages in batches
+async def delete_scheduled_messages():
+    """Delete messages that are scheduled for deletion."""
+    current_time = datetime.now()
+    deletions = await db.deletions.find({"delete_at": {"$lt": current_time}})  # Fetch messages scheduled for deletion
+    messages_to_delete = []
+    
+    for deletion in deletions:
+        messages_to_delete.append((deletion["chat_id"], deletion["message_id"]))
+        await db.deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
+    
+    # Batch delete messages asynchronously
+    for chat_id, message_id in messages_to_delete:
+        try:
+            await client.delete_messages(chat_id, message_id)
+        except Exception as e:
+            print(f"Error deleting message {message_id} in {chat_id}: {e}")
+
+# Schedule the deletion task to run every 5 minutes
+scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
 
 # MongoDB Helper Functions
 async def add_premium_user(user_id, duration_in_days):
@@ -71,7 +106,11 @@ async def is_premium_user(user_id):
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
     UBAN = BAN  # Fetch the owner's ID from config
-
+    
+    # Schedule the message for deletion 1 hour later
+    delete_time = datetime.now() + timedelta(hours=1)
+    await schedule_message_deletion(client, message.chat.id, message.message_id, delete_time)
+    
     # Check if the user is the owner
     if id == UBAN:
         await message.reply("You are the U-BAN! Additional actions can be added here.")
