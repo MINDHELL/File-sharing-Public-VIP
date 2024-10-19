@@ -8,7 +8,6 @@ import random
 import re
 import string
 import time
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
@@ -19,7 +18,10 @@ from bot import Bot
 from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+scheduler = AsyncIOScheduler()
+scheduler.start()
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -35,23 +37,22 @@ async def schedule_message_deletion(chat_id, message_id, delete_at):
     })
 
 async def delete_scheduled_messages():
-    """Delete messages that are scheduled for deletion."""
+    """Your function to delete scheduled messages"""
     current_time = datetime.now()
-    deletions_to_remove = []
+    deletions = db.deletions.find({"delete_at": {"$lt": current_time}}).to_list(length=None)
+    messages_to_delete = []
+    
+    for deletion in deletions:
+        messages_to_delete.append((deletion["chat_id"], deletion["message_id"]))
+        await db.deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
 
-    # Correctly fetching deletions
-    async for deletion in db.deletions.find({"delete_at": {"$lt": current_time}}):
+    for chat_id, message_id in messages_to_delete:
         try:
-            await client.delete_messages(deletion["chat_id"], deletion["message_id"])
-            deletions_to_remove.append(deletion["_id"])
+            await client.delete_messages(chat_id, message_id)
         except Exception as e:
-            logging.error(f"Error deleting message {deletion['message_id']} in {deletion['chat_id']}: {e}")
+            print(f"Error deleting message {message_id} in {chat_id}: {e}")
 
-    # Remove the deletion records after successfully deleting the messages
-    if deletions_to_remove:
-        await db.deletions.delete_many({"_id": {"$in": deletions_to_remove}})
-
-# Schedule the deletion task to run every 5 minutes
+# Schedule the deletion task every 5 minutes
 scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
 
 # MongoDB Helper Functions
