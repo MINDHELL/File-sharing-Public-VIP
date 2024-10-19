@@ -197,7 +197,7 @@ async def start_command(client: Client, message: Message):
         )
         
         # Schedule deletion of the welcome message after 10 minutes
-        asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
+        asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=600))
 
 # Function to automatically delete the message after a delay
 async def auto_delete_message(client, chat_id, message_id, delay):
