@@ -25,10 +25,6 @@ client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
 
-# Initialize the scheduler
-scheduler = AsyncIOScheduler()
-scheduler.start()
-
 # MongoDB Helper Functions (For deletions)
 async def schedule_message_deletion(chat_id, message_id, delete_at):
     """Schedule the message to be deleted at a specified time."""
@@ -38,23 +34,22 @@ async def schedule_message_deletion(chat_id, message_id, delete_at):
         "delete_at": delete_at
     })
 
-# Function to delete messages in batches
 async def delete_scheduled_messages():
     """Delete messages that are scheduled for deletion."""
     current_time = datetime.now()
-    deletions = await db.deletions.find({"delete_at": {"$lt": current_time}}).to_list(length=None)  # Fetch messages scheduled for deletion
-    messages_to_delete = []
-    
-    for deletion in deletions:
-        messages_to_delete.append((deletion["chat_id"], deletion["message_id"]))
-        await db.deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
-    
-    # Batch delete messages asynchronously
-    for chat_id, message_id in messages_to_delete:
+    deletions_to_remove = []
+
+    # Correctly fetching deletions
+    async for deletion in db.deletions.find({"delete_at": {"$lt": current_time}}):
         try:
-            await client.delete_messages(chat_id, message_id)
+            await client.delete_messages(deletion["chat_id"], deletion["message_id"])
+            deletions_to_remove.append(deletion["_id"])
         except Exception as e:
-            print(f"Error deleting message {message_id} in {chat_id}: {e}")
+            logging.error(f"Error deleting message {deletion['message_id']} in {deletion['chat_id']}: {e}")
+
+    # Remove the deletion records after successfully deleting the messages
+    if deletions_to_remove:
+        await db.deletions.delete_many({"_id": {"$in": deletions_to_remove}})
 
 # Schedule the deletion task to run every 5 minutes
 scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
@@ -87,6 +82,9 @@ async def is_premium_user(user_id):
     return False
 
 
+import asyncio
+
+# Modify the /start command to include auto-deletion
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
@@ -95,8 +93,8 @@ async def start_command(client: Client, message: Message):
     if not await present_user(id):
         try:
             await add_user(id)
-        except:
-            pass
+        except Exception as e:
+            logging.error(f"Error adding user {id}: {e}")
 
     # Check if the user is a premium user
     premium_status = await is_premium_user(id)
@@ -105,16 +103,15 @@ async def start_command(client: Client, message: Message):
     if len(message.text) > 7:
         try:
             base64_string = message.text.split(" ", 1)[1]
-        except:
+        except Exception as e:
+            logging.error(f"Error processing base64 string: {e}")
             return
 
-        # Check if it's a premium link or normal link
         if base64_string.startswith("premium_"):
-            if premium_status:
-                base64_string = base64_string.replace("premium_", "")
-            else:
+            if not premium_status:
                 await message.reply_text("This link is for premium users only! Upgrade to access.")
                 return
+            base64_string = base64_string.replace("premium_", "")
 
         string = await decode(base64_string)
         argument = string.split("-")
@@ -124,13 +121,15 @@ async def start_command(client: Client, message: Message):
             try:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
-            except:
+                ids = range(start, end + 1) if start <= end else []
+            except Exception as e:
+                logging.error(f"Error calculating message IDs: {e}")
                 return
-            ids = range(start, end + 1) if start <= end else []
         elif len(argument) == 2:
             try:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except:
+            except Exception as e:
+                logging.error(f"Error calculating single message ID: {e}")
                 return
 
         temp_msg = await message.reply("Please wait...")
@@ -138,53 +137,75 @@ async def start_command(client: Client, message: Message):
         # Fetch and send the requested messages
         try:
             messages = await get_messages(client, ids)
-        except:
+        except Exception as e:
             await message.reply_text("Something went wrong!")
+            logging.error(f"Error fetching messages: {e}")
             return
         await temp_msg.delete()
 
         for msg in messages:
-            caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, filename=msg.document.file_name) if CUSTOM_CAPTION and msg.document else msg.caption or ""
+            caption = CUSTOM_CAPTION.format(
+                previouscaption="" if not msg.caption else msg.caption.html,
+                filename=msg.document.file_name
+            ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
 
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
-                await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                # Send the message to the user and schedule deletion
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+                
+                # Schedule deletion of the message after 10 minutes (600 seconds)
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
                 await asyncio.sleep(0.5)
+
             except FloodWait as e:
                 await asyncio.sleep(e.x)
-                await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-            except:
-                pass
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
 
-    # If no encoded message, reply with premium or normal welcome message
     else:
-        if premium_status:
-            reply_markup = InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
-                    [InlineKeyboardButton("✨ Premium Content", callback_data="premium_content")],
-                ]
-            )
-            await message.reply_text(
-                text=f"Welcome {message.from_user.first_name}! As a premium user, you have access to exclusive content!",
-                reply_markup=reply_markup,
-                disable_web_page_preview=True,
-                quote=True
-            )
-        else:
-            reply_markup = InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
-                    [InlineKeyboardButton("✨ Upgrade to Premium", callback_data="show_plans")],
-                ]
-            )
-            await message.reply_text(
-                text=f"Hello {message.from_user.first_name}, enjoy using the bot. Upgrade to premium for more features!",
-                reply_markup=reply_markup,
-                disable_web_page_preview=True,
-                quote=True
-            )
+        reply_markup = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
+                [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")],
+            ]
+        )
+        welcome_text = f"Welcome {message.from_user.first_name}! " + (
+            "As a premium user, you have access to exclusive content!"
+            if premium_status else
+            "Enjoy using the bot. Upgrade to premium for more features!"
+        )
+        sent_message = await message.reply_text(
+            text=welcome_text,
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+            quote=True
+        )
+        
+        # Schedule deletion of the welcome message after 10 minutes
+        asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
+
+# Function to automatically delete the message after a delay
+async def auto_delete_message(client, chat_id, message_id, delay):
+    await asyncio.sleep(delay)  # Wait for the specified delay (in seconds)
+    try:
+        await client.delete_messages(chat_id, message_id)
+    except Exception as e:
+        logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
+
 
 
     
