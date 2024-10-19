@@ -21,7 +21,7 @@ async def add_premium(bot: Bot, message: Message):  # Changed `client: Client` t
     try:
         command_parts = message.text.split()
         if len(command_parts) < 3:  # Check if enough arguments are provided
-            return await message.reply("Usage: /addpr <user_id> <duration_in_days>")
+            return await message.reply("Usage: /addpr 'user_id' 'duration_in_days'")
 
         target_user_id = int(command_parts[1])
         duration_in_days = int(command_parts[2])
@@ -39,7 +39,7 @@ async def remove_premium(bot: Bot, message: Message):  # Changed `client: Client
     try:
         command_parts = message.text.split()
         if len(command_parts) < 2:  # Check if enough arguments are provided
-            return await message.reply("Usage: /removepr <user_id>")
+            return await message.reply("Usage: /removepr 'user_id'")
 
         target_user_id = int(command_parts[1])
         await remove_premium_user(target_user_id)
