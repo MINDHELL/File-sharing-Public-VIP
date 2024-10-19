@@ -18,18 +18,17 @@ from bot import Bot
 from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+#from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-scheduler = AsyncIOScheduler()
-scheduler.start()
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
 
+"""
 # MongoDB Helper Functions (For deletions)
 async def schedule_message_deletion(chat_id, message_id, delete_at):
-    """Schedule the message to be deleted at a specified time."""
+    #Schedule the message to be deleted at a specified time.
     db.deletions.insert_one({
         "chat_id": chat_id,
         "message_id": message_id,
@@ -37,7 +36,7 @@ async def schedule_message_deletion(chat_id, message_id, delete_at):
     })
 
 async def delete_scheduled_messages():
-    """Your function to delete scheduled messages"""
+    #Your function to delete scheduled messages
     current_time = datetime.now()
     deletions = db.deletions.find({"delete_at": {"$lt": current_time}}).to_list(length=None)
     messages_to_delete = []
@@ -54,6 +53,8 @@ async def delete_scheduled_messages():
 
 # Schedule the deletion task every 5 minutes
 scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
+
+"""
 
 # MongoDB Helper Functions
 async def add_premium_user(user_id, duration_in_days):
@@ -82,10 +83,14 @@ async def is_premium_user(user_id):
         return True
     return False
 
+async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set default delay to 1 hour
+    await asyncio.sleep(delay)
+    try:
+        await client.delete_messages(chat_id, message_id)
+    except Exception as e:
+        logging.error(f"Failed to delete message: {e}")
 
-import asyncio
 
-# Modify the /start command to include auto-deletion
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
@@ -153,7 +158,7 @@ async def start_command(client: Client, message: Message):
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
-                # Send the message to the user and schedule deletion
+                # Send the message to the user and schedule deletion after 1 hour
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id, 
                     caption=caption, 
@@ -161,9 +166,9 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
-                
-                # Schedule deletion of the message after 10 minutes (600 seconds)
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
+
+                # Schedule deletion of the message after 1 hour (3600 seconds)
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
                 await asyncio.sleep(0.5)
 
             except FloodWait as e:
@@ -175,7 +180,7 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=600))
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
 
     else:
         reply_markup = InlineKeyboardMarkup(
@@ -195,17 +200,11 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-        
-        # Schedule deletion of the welcome message after 10 minutes
-        asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=600))
 
-# Function to automatically delete the message after a delay
-async def auto_delete_message(client, chat_id, message_id, delay):
-    await asyncio.sleep(delay)  # Wait for the specified delay (in seconds)
-    try:
-        await client.delete_messages(chat_id, message_id)
-    except Exception as e:
-        logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
+        
+
+
+
 
 
 
