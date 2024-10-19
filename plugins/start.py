@@ -176,7 +176,7 @@ async def start_command(client: Client, message: Message):
             reply_markup = InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
-                    [InlineKeyboardButton("✨ Upgrade to Premium", callback_data="premium_info")],
+                    [InlineKeyboardButton("✨ Upgrade to Premium", callback_data="show_plans")],
                 ]
             )
             await message.reply_text(
