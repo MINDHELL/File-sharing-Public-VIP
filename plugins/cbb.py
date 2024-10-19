@@ -39,6 +39,11 @@ async def cb_handler(client: Bot, query: CallbackQuery):
     elif data == "show_plans":
         await show_plans(client, query.message)
 
+    elif data == "premium_content":
+        # Show an alert and then provide the premium content
+        await query.answer("Accessing Premium Content...", show_alert=True)
+        await query.message.reply_text("Here is the premium content you requested!")
+
 # https://t.me/Ultroid_Official/524
 
 
