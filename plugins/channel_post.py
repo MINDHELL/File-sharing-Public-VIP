@@ -40,7 +40,7 @@ async def channel_post(client: Client, message: Message):
           InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]]
     )
 
-    await reply_text.edit(f"<b>Here are your links:</b>\n\nNormal: {normal_link} \nPremium: {premium_link} \n\nJoin @ultroid_official", reply_markup=reply_markup, disable_web_page_preview=True)
+    await reply_text.edit(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n ✨ Premium: {premium_link} \n\nJoin @ultroid_official", reply_markup=reply_markup, disable_web_page_preview=True)
 
     if not DISABLE_CHANNEL_BUTTON:
         await post_message.edit_reply_markup(reply_markup)
