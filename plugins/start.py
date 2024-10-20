@@ -141,7 +141,7 @@ async def start_command(client: Client, message: Message):
             logging.error(f"Error calculating message IDs: {e}")
             return
 
-        temp_msg = await message.reply("Please wait...")
+        temp_msg = await message.reply("Please wait... 1")
 
         # Fetch and send the requested messages
         try:
