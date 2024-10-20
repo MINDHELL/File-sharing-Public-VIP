@@ -12,8 +12,6 @@ from helper_func import encode
 import logging
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-
 @Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
 async def channel_post(client: Client, message: Message):
     reply_text = await message.reply_text("Please Wait...", quote=True)
@@ -22,14 +20,18 @@ async def channel_post(client: Client, message: Message):
         # Trying to copy the message to the database channel
         post_message = await message.copy(chat_id=client.db_channel.id, disable_notification=True)
     except FloodWait as e:
-        # Handling FloodWait exception by sleeping for the required time
         logging.error(f"FloodWait exception: Need to wait for {e.x} seconds.")
         await asyncio.sleep(e.x)
         post_message = await message.copy(chat_id=client.db_channel.id, disable_notification=True)
     except Exception as e:
-        # Logging the actual error for debugging
         logging.error(f"Error while copying message: {e}")
         await reply_text.edit_text("Something went wrong! Please try again later.")
+        return
+
+    # Check if post_message has a valid message_id
+    if not post_message or not post_message.id:
+        logging.error("Invalid post_message: Message ID is missing or invalid.")
+        await reply_text.edit_text("Failed to process the message. Invalid message ID.")
         return
 
     try:
@@ -64,6 +66,8 @@ async def channel_post(client: Client, message: Message):
 
     except Exception as e:
         logging.error(f"Error generating links: {e}")
+        await reply_text.edit_text("Failed to generate links. Please try again.")
+
 
 
 
