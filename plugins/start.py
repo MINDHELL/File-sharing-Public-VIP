@@ -110,86 +110,92 @@ async def start_command(client: Client, message: Message):
     # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
         try:
-            base64_string_with_hash = message.text.split(" ", 1)[1]
-            base64_string, link_hash = base64_string_with_hash.rsplit("_", 1)
+            base64_string = message.text.split(" ", 1)[1]
         except Exception as e:
             logging.error(f"Error processing base64 string: {e}")
             return
 
-        # Validate the integrity of the link
-        expected_hash = sha256(f"{base64_string}_secret_key".encode()).hexdigest()
-        if link_hash != expected_hash:
-            await message.reply_text("Invalid link. Please generate a valid link.")
-            return
-
         if base64_string.startswith("premium_"):
+            # Extract the premium token
+            premium_token = base64_string.replace("premium_", "")
+            
+            # Validate the premium token (here you can add your own validation logic)
+            # For example, store the valid tokens in the database and check against it
+            # For simplicity, let's assume valid tokens are stored in a list in the database
+            valid_premium_tokens = await get_valid_premium_tokens()
+
+            if premium_token not in valid_premium_tokens:
+                await message.reply_text("Invalid or expired premium link! Please try again.")
+                return
+
             if not premium_status:
                 await message.reply_text("This link is for premium users only! Upgrade to access.")
                 return
-            base64_string = base64_string.replace("premium_", "")
 
-        string = await decode(base64_string)
-        argument = string.split("-")
+        else:
+            # Handle normal link processing
+            string = await decode(base64_string)
+            argument = string.split("-")
 
-        # Process the message IDs based on the argument length
-        if len(argument) == 3:
+            # Process the message IDs based on the argument length
+            if len(argument) == 3:
+                try:
+                    start = int(int(argument[1]) / abs(client.db_channel.id))
+                    end = int(int(argument[2]) / abs(client.db_channel.id))
+                    ids = range(start, end + 1) if start <= end else []
+                except Exception as e:
+                    logging.error(f"Error calculating message IDs: {e}")
+                    return
+            elif len(argument) == 2:
+                try:
+                    ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+                except Exception as e:
+                    logging.error(f"Error calculating single message ID: {e}")
+                    return
+
+            temp_msg = await message.reply("Please wait...")
+
+            # Fetch and send the requested messages
             try:
-                start = int(int(argument[1]) / abs(client.db_channel.id))
-                end = int(int(argument[2]) / abs(client.db_channel.id))
-                ids = range(start, end + 1) if start <= end else []
+                messages = await get_messages(client, ids)
             except Exception as e:
-                logging.error(f"Error calculating message IDs: {e}")
+                await message.reply_text("Something went wrong!")
+                logging.error(f"Error fetching messages: {e}")
                 return
-        elif len(argument) == 2:
-            try:
-                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                logging.error(f"Error calculating single message ID: {e}")
-                return
+            await temp_msg.delete()
 
-        temp_msg = await message.reply("Please wait...")
+            for msg in messages:
+                caption = CUSTOM_CAPTION.format(
+                    previouscaption="" if not msg.caption else msg.caption.html,
+                    filename=msg.document.file_name
+                ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
 
-        # Fetch and send the requested messages
-        try:
-            messages = await get_messages(client, ids)
-        except Exception as e:
-            await message.reply_text("Something went wrong!")
-            logging.error(f"Error fetching messages: {e}")
-            return
-        await temp_msg.delete()
+                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
-        for msg in messages:
-            caption = CUSTOM_CAPTION.format(
-                previouscaption="" if not msg.caption else msg.caption.html,
-                filename=msg.document.file_name
-            ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
+                try:
+                    # Send the message to the user and schedule deletion after 1 hour
+                    sent_message = await msg.copy(
+                        chat_id=message.from_user.id, 
+                        caption=caption, 
+                        parse_mode=ParseMode.HTML, 
+                        reply_markup=reply_markup, 
+                        protect_content=PROTECT_CONTENT
+                    )
 
-            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+                    # Schedule deletion of the message after 1 hour (3600 seconds)
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                    await asyncio.sleep(0.5)
 
-            try:
-                # Send the message to the user and schedule deletion after 1 hour
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id, 
-                    caption=caption, 
-                    parse_mode=ParseMode.HTML, 
-                    reply_markup=reply_markup, 
-                    protect_content=PROTECT_CONTENT
-                )
-
-                # Schedule deletion of the message after 1 hour (3600 seconds)
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=3600))
-                await asyncio.sleep(0.5)
-
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id, 
-                    caption=caption, 
-                    parse_mode=ParseMode.HTML, 
-                    reply_markup=reply_markup, 
-                    protect_content=PROTECT_CONTENT
-                )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=3600))
+                except FloodWait as e:
+                    await asyncio.sleep(e.x)
+                    sent_message = await msg.copy(
+                        chat_id=message.from_user.id, 
+                        caption=caption, 
+                        parse_mode=ParseMode.HTML, 
+                        reply_markup=reply_markup, 
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
 
     else:
         reply_markup = InlineKeyboardMarkup(
