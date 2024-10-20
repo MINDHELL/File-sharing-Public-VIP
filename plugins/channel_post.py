@@ -32,30 +32,32 @@ async def channel_post(client: Client, message: Message):
 
     link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
     
-    # Generate normal and premium links
     normal_link = f"https://t.me/{client.username}?start={normal_base64}"
     premium_link = f"https://t.me/{client.username}?start={premium_base64}"
 
-    # Creating inline buttons for sharing the links
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
           InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]]
     )
 
-    await reply_text.edit(
-        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", 
-        reply_markup=reply_markup, 
-        disable_web_page_preview=True
-    )
+    try:
+        await reply_text.edit(
+            f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", 
+            reply_markup=reply_markup, 
+            disable_web_page_preview=True
+        )
 
-    if not DISABLE_CHANNEL_BUTTON:
+        if not DISABLE_CHANNEL_BUTTON:
+            await post_message.edit_reply_markup(reply_markup)
+    except FloodWait as e:
+        await asyncio.sleep(e.x)
         try:
             await post_message.edit_reply_markup(reply_markup)
-        except FloodWait as e:
-            await asyncio.sleep(e.x)
-            await post_message.edit_reply_markup(reply_markup)
-        except Exception as e:
-            logging.error(f"Error editing reply markup: {e}")
+        except Exception as edit_error:
+            logging.error(f"Error editing reply markup after flood wait: {edit_error}")
+    except Exception as e:
+        logging.error(f"Error editing reply markup: {e}")
+
 
 
 
