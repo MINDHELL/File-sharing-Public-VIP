@@ -95,18 +95,17 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
-    user_id = message.from_user.id
     id = message.from_user.id
 
     # Check if the user exists in the database
-    if not await present_user(user_id):
+    if not await present_user(id):
         try:
-            await add_user(user_id)
+            await add_user(id)
         except Exception as e:
-            logging.error(f"Error adding user {user_id}: {e}")
+            logging.error(f"Error adding user {id}: {e}")
 
     # Check if the user is a premium user
-    premium_status = await is_premium_user(user_id)
+    premium_status = await is_premium_user(id)
 
     # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
@@ -129,7 +128,7 @@ async def start_command(client: Client, message: Message):
         # Process the normal link logic
         argument = decoded_string.split("-")
 
-        # Process message IDs
+        # Process the message IDs based on the argument length
         if len(argument) == 3:
             try:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
@@ -190,7 +189,6 @@ async def start_command(client: Client, message: Message):
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
 
     else:
-        # Normal start message with premium button
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
