@@ -95,17 +95,17 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
-    id = message.from_user.id
+    user_id = message.from_user.id
 
     # Check if the user exists in the database
-    if not await present_user(id):
+    if not await present_user(user_id):
         try:
-            await add_user(id)
+            await add_user(user_id)
         except Exception as e:
-            logging.error(f"Error adding user {id}: {e}")
+            logging.error(f"Error adding user {user_id}: {e}")
 
     # Check if the user is a premium user
-    premium_status = await is_premium_user(id)
+    premium_status = await is_premium_user(user_id)
 
     # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
@@ -115,89 +115,81 @@ async def start_command(client: Client, message: Message):
             logging.error(f"Error processing base64 string: {e}")
             return
 
-        if base64_string.startswith("premium_"):
-            # Extract the premium token
-            premium_token = base64_string.replace("premium_", "")
-            
-            # Validate the premium token (here you can add your own validation logic)
-            # For example, store the valid tokens in the database and check against it
-            # For simplicity, let's assume valid tokens are stored in a list in the database
-            valid_premium_tokens = await get_valid_premium_tokens()
-
-            if premium_token not in valid_premium_tokens:
-                await message.reply_text("Invalid or expired premium link! Please try again.")
-                return
-
+        decoded_string = await decode(base64_string)
+        
+        # If it’s a premium link, check for premium access
+        if "premium-" in decoded_string:
             if not premium_status:
                 await message.reply_text("This link is for premium users only! Upgrade to access.")
                 return
+            # Handle premium link logic (remove "premium-" part)
+            decoded_string = decoded_string.replace("premium-", "")
 
-        else:
-            # Handle normal link processing
-            string = await decode(base64_string)
-            argument = string.split("-")
+        # Process the normal link logic
+        argument = decoded_string.split("-")
 
-            # Process the message IDs based on the argument length
-            if len(argument) == 3:
-                try:
-                    start = int(int(argument[1]) / abs(client.db_channel.id))
-                    end = int(int(argument[2]) / abs(client.db_channel.id))
-                    ids = range(start, end + 1) if start <= end else []
-                except Exception as e:
-                    logging.error(f"Error calculating message IDs: {e}")
-                    return
-            elif len(argument) == 2:
-                try:
-                    ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-                except Exception as e:
-                    logging.error(f"Error calculating single message ID: {e}")
-                    return
-
-            temp_msg = await message.reply("Please wait...")
-
-            # Fetch and send the requested messages
+        # Process message IDs
+        if len(argument) == 3:
             try:
-                messages = await get_messages(client, ids)
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+                ids = range(start, end + 1) if start <= end else []
             except Exception as e:
-                await message.reply_text("Something went wrong!")
-                logging.error(f"Error fetching messages: {e}")
+                logging.error(f"Error calculating message IDs: {e}")
                 return
-            await temp_msg.delete()
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                logging.error(f"Error calculating single message ID: {e}")
+                return
 
-            for msg in messages:
-                caption = CUSTOM_CAPTION.format(
-                    previouscaption="" if not msg.caption else msg.caption.html,
-                    filename=msg.document.file_name
-                ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
+        temp_msg = await message.reply("Please wait...")
 
-                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+        # Fetch and send the requested messages
+        try:
+            messages = await get_messages(client, ids)
+        except Exception as e:
+            await message.reply_text("Something went wrong!")
+            logging.error(f"Error fetching messages: {e}")
+            return
+        await temp_msg.delete()
 
-                try:
-                    # Send the message to the user and schedule deletion after 1 hour
-                    sent_message = await msg.copy(
-                        chat_id=message.from_user.id, 
-                        caption=caption, 
-                        parse_mode=ParseMode.HTML, 
-                        reply_markup=reply_markup, 
-                        protect_content=PROTECT_CONTENT
-                    )
+        for msg in messages:
+            caption = CUSTOM_CAPTION.format(
+                previouscaption="" if not msg.caption else msg.caption.html,
+                filename=msg.document.file_name
+            ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
 
-                    # Schedule deletion of the message after 1 hour (3600 seconds)
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
-                    await asyncio.sleep(0.5)
+            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
-                except FloodWait as e:
-                    await asyncio.sleep(e.x)
-                    sent_message = await msg.copy(
-                        chat_id=message.from_user.id, 
-                        caption=caption, 
-                        parse_mode=ParseMode.HTML, 
-                        reply_markup=reply_markup, 
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+            try:
+                # Send the message to the user and schedule deletion after 1 hour
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+
+                # Schedule deletion of the message after 1 hour (3600 seconds)
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                await asyncio.sleep(0.5)
+
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
 
     else:
+        # Normal start message with premium button
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
@@ -215,14 +207,6 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-
-
-        
-
-
-
-
-
 
     
 #=====================================================================================##
