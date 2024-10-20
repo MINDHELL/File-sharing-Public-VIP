@@ -95,54 +95,51 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
-    id = message.from_user.id
+    user_id = message.from_user.id
 
     # Check if the user exists in the database
-    if not await present_user(id):
+    if not await present_user(user_id):
         try:
-            await add_user(id)
+            await add_user(user_id)
         except Exception as e:
-            logging.error(f"Error adding user {id}: {e}")
+            logging.error(f"Error adding user {user_id}: {e}")
 
     # Check if the user is a premium user
-    premium_status = await is_premium_user(id)
+    premium_status = await is_premium_user(user_id)
 
     # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
+        base64_string = message.text.split(" ", 1)[1]
+        if not base64_string:
+            return
+
         try:
-            base64_string = message.text.split(" ", 1)[1]
+            decoded_string = await decode(base64_string)
+
+            # Check for premium links
+            if "premium-" in decoded_string:
+                if not premium_status:
+                    await message.reply_text("This link is for premium users only! Upgrade to access.")
+                    return
+                decoded_string = decoded_string.replace("premium-", "")
         except Exception as e:
             logging.error(f"Error processing base64 string: {e}")
             return
 
-        decoded_string = await decode(base64_string)
-        
-        # If it’s a premium link, check for premium access
-        if "premium-" in decoded_string:
-            if not premium_status:
-                await message.reply_text("This link is for premium users only! Upgrade to access.")
-                return
-            # Handle premium link logic (remove "premium-" part)
-            decoded_string = decoded_string.replace("premium-", "")
-
-        # Process the normal link logic
+        # Process the decoded message
         argument = decoded_string.split("-")
-
-        # Process the message IDs based on the argument length
-        if len(argument) == 3:
-            try:
-                start = int(int(argument[1]) / abs(client.db_channel.id))
-                end = int(int(argument[2]) / abs(client.db_channel.id))
+        ids = []
+        
+        try:
+            if len(argument) == 3:
+                start = int(argument[1]) // abs(client.db_channel.id)
+                end = int(argument[2]) // abs(client.db_channel.id)
                 ids = range(start, end + 1) if start <= end else []
-            except Exception as e:
-                logging.error(f"Error calculating message IDs: {e}")
-                return
-        elif len(argument) == 2:
-            try:
-                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                logging.error(f"Error calculating single message ID: {e}")
-                return
+            elif len(argument) == 2:
+                ids = [int(argument[1]) // abs(client.db_channel.id)]
+        except Exception as e:
+            logging.error(f"Error calculating message IDs: {e}")
+            return
 
         temp_msg = await message.reply("Please wait...")
 
@@ -156,43 +153,36 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         for msg in messages:
-            caption = CUSTOM_CAPTION.format(
-                previouscaption="" if not msg.caption else msg.caption.html,
-                filename=msg.document.file_name
-            ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
-
+            caption = (CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name) 
+                       if CUSTOM_CAPTION and msg.document else msg.caption or "")
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
-                # Send the message to the user and schedule deletion after 1 hour
                 sent_message = await msg.copy(
-                    chat_id=message.from_user.id, 
+                    chat_id=user_id, 
                     caption=caption, 
                     parse_mode=ParseMode.HTML, 
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
-
-                # Schedule deletion of the message after 1 hour (3600 seconds)
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
                 await asyncio.sleep(0.5)
-
             except FloodWait as e:
                 await asyncio.sleep(e.x)
                 sent_message = await msg.copy(
-                    chat_id=message.from_user.id, 
+                    chat_id=user_id, 
                     caption=caption, 
                     parse_mode=ParseMode.HTML, 
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
-
     else:
         reply_markup = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
-                [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")],
+                [InlineKeyboardButton("😊 About Me", callback_data="about"), 
+                 InlineKeyboardButton("🔒 Close", callback_data="close")],
+                [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")]
             ]
         )
         welcome_text = f"Welcome {message.from_user.first_name}! " + (
@@ -200,7 +190,7 @@ async def start_command(client: Client, message: Message):
             if premium_status else
             "Enjoy using the bot. Upgrade to premium for more features!"
         )
-        sent_message = await message.reply_text(
+        await message.reply_text(
             text=welcome_text,
             reply_markup=reply_markup,
             disable_web_page_preview=True,
