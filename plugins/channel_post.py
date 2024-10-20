@@ -21,7 +21,7 @@ async def channel_post(client: Client, message: Message):
         await asyncio.sleep(e.value)
         post_message = await message.copy(chat_id = client.db_channel.id, disable_notification=True)
     except Exception as e:
-        print(e)
+        print(e , "line 24 at chnanel_post.py")
         await reply_text.edit_text("Something went Wrong..!")
         return
         
