@@ -13,7 +13,7 @@ from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
-
+from hashlib import sha256
 from bot import Bot
 from config import *
 from helper_func import *
@@ -91,6 +91,8 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
+
+
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
@@ -108,9 +110,16 @@ async def start_command(client: Client, message: Message):
     # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
         try:
-            base64_string = message.text.split(" ", 1)[1]
+            base64_string_with_hash = message.text.split(" ", 1)[1]
+            base64_string, link_hash = base64_string_with_hash.rsplit("_", 1)
         except Exception as e:
             logging.error(f"Error processing base64 string: {e}")
+            return
+
+        # Validate the integrity of the link
+        expected_hash = sha256(f"{base64_string}_secret_key".encode()).hexdigest()
+        if link_hash != expected_hash:
+            await message.reply_text("Invalid link. Please generate a valid link.")
             return
 
         if base64_string.startswith("premium_"):
@@ -168,7 +177,7 @@ async def start_command(client: Client, message: Message):
                 )
 
                 # Schedule deletion of the message after 1 hour (3600 seconds)
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=3600))
                 await asyncio.sleep(0.5)
 
             except FloodWait as e:
@@ -180,7 +189,7 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.message_id, delay=3600))
 
     else:
         reply_markup = InlineKeyboardMarkup(
@@ -200,6 +209,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
         
 
