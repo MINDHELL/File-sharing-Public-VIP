@@ -96,6 +96,7 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+    id = message.from_user.id
 
     # Check if the user exists in the database
     if not await present_user(user_id):
