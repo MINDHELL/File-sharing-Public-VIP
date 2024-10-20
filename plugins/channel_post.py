@@ -10,11 +10,11 @@ from config import ADMINS, CHANNEL_ID, DISABLE_CHANNEL_BUTTON
 from helper_func import encode
 
 import logging
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 @Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
 async def channel_post(client: Client, message: Message):
-    reply_text = await message.reply_text("Please Wait...!", quote=True)
+    reply_text = await message.reply_text("Please Wait...", quote=True)
 
     try:
         # Trying to copy the message to the database channel
@@ -50,7 +50,12 @@ async def channel_post(client: Client, message: Message):
               InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]]
         )
 
-        await reply_text.edit(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", reply_markup=reply_markup, disable_web_page_preview=True)
+        await reply_text.edit(
+            f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", 
+            reply_markup=reply_markup, 
+            disable_web_page_preview=True,
+            parse_mode="html"  # Directly specify "html" or "markdown" as needed
+        )
 
         # Optionally updating the post in the database channel with a reply markup
         if not DISABLE_CHANNEL_BUTTON:
@@ -58,7 +63,7 @@ async def channel_post(client: Client, message: Message):
 
     except Exception as e:
         logging.error(f"Error generating links: {e}")
-        await reply_text.edit_text("Something went wrong while generating the links!")
+
 
 
 @Bot.on_message(filters.channel & filters.incoming & filters.chat(CHANNEL_ID))
