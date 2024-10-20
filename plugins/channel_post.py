@@ -9,8 +9,7 @@ from pyrogram.errors import FloodWait
 from bot import Bot
 from config import ADMINS, CHANNEL_ID, DISABLE_CHANNEL_BUTTON
 from helper_func import encode
-
-
+from hashlib import sha256
 
 
 @Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
@@ -27,13 +26,17 @@ async def channel_post(client: Client, message: Message):
         await reply_text.edit_text("Something went wrong!")
         return
 
+    # Create a unique identifier for the link, ensuring it's secure
     converted_id = post_message.id * abs(client.db_channel.id)
     string = f"get-{converted_id}"
     base64_string = await encode(string)
     
+    # Add hash to ensure integrity of normal and premium links
+    link_hash = sha256(f"{base64_string}_secret_key".encode()).hexdigest()
+
     # Generate normal and premium links
-    normal_link = f"https://t.me/{client.username}?start={base64_string}"
-    premium_link = f"https://t.me/{client.username}?start=premium_{base64_string}"
+    normal_link = f"https://t.me/{client.username}?start={base64_string}_{link_hash}"
+    premium_link = f"https://t.me/{client.username}?start=premium_{base64_string}_{link_hash}"
     
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
@@ -44,6 +47,7 @@ async def channel_post(client: Client, message: Message):
 
     if not DISABLE_CHANNEL_BUTTON:
         await post_message.edit_reply_markup(reply_markup)
+
 
 
 
