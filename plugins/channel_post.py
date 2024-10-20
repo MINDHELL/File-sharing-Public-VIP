@@ -12,6 +12,8 @@ from helper_func import encode
 import logging
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+
 @Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
 async def channel_post(client: Client, message: Message):
     reply_text = await message.reply_text("Please Wait...", quote=True)
@@ -53,8 +55,7 @@ async def channel_post(client: Client, message: Message):
         await reply_text.edit(
             f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", 
             reply_markup=reply_markup, 
-            disable_web_page_preview=True,
-            parse_mode="html"  # Directly specify "html" or "markdown" as needed
+            disable_web_page_preview=True
         )
 
         # Optionally updating the post in the database channel with a reply markup
@@ -63,6 +64,7 @@ async def channel_post(client: Client, message: Message):
 
     except Exception as e:
         logging.error(f"Error generating links: {e}")
+
 
 
 
