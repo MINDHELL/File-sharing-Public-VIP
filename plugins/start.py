@@ -117,11 +117,11 @@ async def start_command(client: Client, message: Message):
             decoded_string = await decode(base64_string)
 
             # Check for premium links
-            if "premium-" in decoded_string:
+            if "get-" in decoded_string:
                 if not premium_status:
                     await message.reply_text("This link is for premium users only! Upgrade to access.")
                     return
-                decoded_string = decoded_string.replace("premium-", "")
+                decoded_string = decoded_string.replace("get-", "")
         except Exception as e:
             logging.error(f"Error processing base64 string: {e}")
             return
