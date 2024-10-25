@@ -7,10 +7,10 @@ from pyrogram import filters, Client
 from pyrogram.errors import FloodWait
 from bot import Bot
 from config import ADMINS, CHANNEL_ID, DISABLE_CHANNEL_BUTTON
-from helper_func import encode
-
+from helper_func import *
 import logging
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+
 
 @Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
 async def channel_post(client: Client, message: Message):
@@ -25,9 +25,8 @@ async def channel_post(client: Client, message: Message):
         await reply_text.edit_text("Something went wrong!")
         return
 
-    normal_string = f"get-{post_message.id * abs(client.db_channel.id)}"
-    premium_string = f"premium-{post_message.id * abs(client.db_channel.id)}-{post_message.date}"
-    normal_base64 = await encode(normal_string)
+    normal_string = f"got-{post_message.id * abs(client.db_channel.id)}"
+    premium_string = f"get-{post_message.id * abs(client.db_channel.id)}"
     premium_base64 = await encode(premium_string)
 
     link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
@@ -59,9 +58,6 @@ async def channel_post(client: Client, message: Message):
         logging.error(f"Error editing reply markup 2 : {e}")
 
 
-
-
-
 @Bot.on_message(filters.channel & filters.incoming & filters.chat(CHANNEL_ID))
 async def new_post(client: Client, message: Message):
 
@@ -75,12 +71,11 @@ async def new_post(client: Client, message: Message):
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
     try:
         await message.edit_reply_markup(reply_markup)
-    except Exception as e:
-        print(e)
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+        await message.edit_reply_markup(reply_markup)
+    except Exception:
         pass
-
-
-
 
 
 
