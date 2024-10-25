@@ -31,7 +31,7 @@ async def channel_post(client: Client, message: Message):
 
     link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
     
-    normal_link = f"https://t.me/{client.username}?start={link}"
+    normal_link = link
     premium_link = f"https://t.me/{client.username}?start={premium_base64}"
 
     reply_markup = InlineKeyboardMarkup(
