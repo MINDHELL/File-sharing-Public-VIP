@@ -1,86 +1,163 @@
-# https://t.me/Ultroid_Official/524
-
-
-
+import base64
+import base58
+import re
 import asyncio
-from pyrogram import filters, Client
+from pyrogram import filters
+from pyrogram.enums import ChatMemberStatus
+from config import FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, FORCE_SUB_CHANNEL3, FORCE_SUB_CHANNEL4, ADMINS
+from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait
-from bot import Bot
-from config import ADMINS, CHANNEL_ID, DISABLE_CHANNEL_BUTTON
-from helper_func import *
-import logging
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+#----Token
+from shortzy import Shortzy
+import requests
+import time
+from datetime import datetime
+from database.database import user_data, db_verify_status, db_update_verify_status
 
+async def is_subscribed(filter, client, update):
+    if not (FORCE_SUB_CHANNEL or FORCE_SUB_CHANNEL2 or FORCE_SUB_CHANNEL3 or FORCE_SUB_CHANNEL4):
+        return True
 
-# Assuming ADMINS, DISABLE_CHANNEL_BUTTON, and encode, encodeb functions are defined elsewhere
-COMMANDS = ['start', 'users', 'getpremiumusers', 'broadcast', 'batch', 'genlink', 'upi', 'myplan', 'plans', 'stats', 'removepr', 'addpr']
+    user_id = update.from_user.id
 
-@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(COMMANDS))
-async def channel_post(client: Client, message: Message):
-    reply_text = await message.reply_text("Please Wait... 4!", quote=True)
-    try:
-        post_message = await message.copy(chat_id=client.db_channel.id, disable_notification=True)
-    except FloodWait as e:
-        await asyncio.sleep(e.x)
-        post_message = await message.copy(chat_id=client.db_channel.id, disable_notification=True)
-    except Exception as e:
-        logging.error(f"Error in channel_post: {e}")
-        await reply_text.edit_text("Something went wrong!")
-        return
+    if user_id in ADMINS:
+        return True
 
-    # Generate normal and premium links
-    message_id_factor = post_message.id * abs(client.db_channel.id)
-    normal_string = f"get-{message_id_factor}"
-    premium_string = f"get-{message_id_factor}"
-    
-    # Encoding links
-    normal_link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
-    premium_link = f"https://t.me/{client.username}?start={await encodeb(premium_string)}"
+    member_status = ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER
 
-    reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
-         InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]
-    ])
+    for channel_id in [FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL2, FORCE_SUB_CHANNEL3, FORCE_SUB_CHANNEL4]:
+        if not channel_id:
+            continue
 
-    try:
-        await reply_text.edit(
-            f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", 
-            reply_markup=reply_markup, 
-            disable_web_page_preview=True
-        )
-
-        if not DISABLE_CHANNEL_BUTTON:
-            await post_message.edit_reply_markup(reply_markup)
-    except FloodWait as e:
-        await asyncio.sleep(e.x)
         try:
-            await post_message.edit_reply_markup(reply_markup)
-        except Exception as edit_error:
-            logging.error(f"Error editing reply markup after flood wait: {edit_error}")
-    except Exception as e:
-        logging.error(f"Error editing reply markup: {e}")
+            member = await client.get_chat_member(chat_id=channel_id, user_id=user_id)
+        except UserNotParticipant:
+            return False
+
+        if member.status not in member_status:
+            return False
+
+    return True
+
+#import base64
+#import base58  # Make sure you install this library first.
+
+async def encode(string):
+    string_bytes = string.encode("ascii")
+    base64_bytes = base64.urlsafe_b64encode(string_bytes)
+    base64_string = base64_bytes.decode("ascii").strip("=")
+    return base64_string
+
+async def decode(base64_string):
+    base64_string = base64_string.strip("=")
+    base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
+    string_bytes = base64.urlsafe_b64decode(base64_bytes)
+    string = string_bytes.decode("ascii")
+    return string
+
+async def encodeb(string):
+    string_bytes = string.encode("ascii")
+    base58_string = base58.b58encode(string_bytes).decode("ascii")
+    return base58_string
+
+async def decodeb(base58_string):
+    string_bytes = base58.b58decode(base58_string.encode("ascii"))
+    string = string_bytes.decode("ascii")
+    return string
 
 
+async def get_messages(client, message_ids):
+    messages = []
+    total_messages = 0
+    while total_messages != len(message_ids):
+        temb_ids = message_ids[total_messages:total_messages+200]
+        try:
+            msgs = await client.get_messages(
+                chat_id=client.db_channel.id,
+                message_ids=temb_ids
+            )
+        except FloodWait as e:
+            await asyncio.sleep(e.x)
+            msgs = await client.get_messages(
+                chat_id=client.db_channel.id,
+                message_ids=temb_ids
+            )
+        except:
+            pass
+        total_messages += len(temb_ids)
+        messages.extend(msgs)
+    return messages
 
-@Bot.on_message(filters.channel & filters.incoming & filters.chat(CHANNEL_ID))
-async def new_post(client: Client, message: Message):
+async def get_message_id(client, message):
+    if message.forward_from_chat:
+        if message.forward_from_chat.id == client.db_channel.id:
+            return message.forward_from_message_id
+        else:
+            return 0
+    elif message.forward_sender_name:
+        return 0
+    elif message.text:
+        pattern = "https://t.me/(?:c/)?(.*)/(\d+)"
+        matches = re.match(pattern, message.text)
+        if not matches:
+            return 0
+        channel_id = matches.group(1)
+        msg_id = int(matches.group(2))
+        if channel_id.isdigit():
+            if f"-100{channel_id}" == str(client.db_channel.id):
+                return msg_id
+        else:
+            if channel_id == client.db_channel.username:
+                return msg_id
+    else:
+        return 0
 
-    if DISABLE_CHANNEL_BUTTON:
-        return
+async def get_verify_status(user_id):
+    verify = await db_verify_status(user_id)
+    return verify
 
-    converted_id = message.id * abs(client.db_channel.id)
-    string = f"get-{converted_id}"
-    base64_string = await encode(string)
-    link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
-    try:
-        await message.edit_reply_markup(reply_markup)
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        await message.edit_reply_markup(reply_markup)
-    except Exception:
-        pass
+async def update_verify_status(user_id, verify_token="", is_verified=False, verified_time=0, link=""):
+    current = await db_verify_status(user_id)
+    current['verify_token'] = verify_token
+    current['is_verified'] = is_verified
+    current['verified_time'] = verified_time
+    current['link'] = link
+    await db_update_verify_status(user_id, current)
 
 
+async def get_shortlink(url, api, link):
+    shortzy = Shortzy(api_key=api, base_site=url)
+    link = await shortzy.convert(link)
+    return link
 
-# https://t.me/Ultroid_Official/524
+def get_exp_time(seconds):
+    periods = [('days', 86400), ('hours', 3600), ('mins', 60), ('secs', 1)]
+    result = ''
+    for period_name, period_seconds in periods:
+        if seconds >= period_seconds:
+            period_value, seconds = divmod(seconds, period_seconds)
+            result += f'{int(period_value)}{period_name}'
+    return result
+
+def get_readable_time(seconds: int) -> str:
+    count = 0
+    up_time = ""
+    time_list = []
+    time_suffix_list = ["s", "m", "h", "days"]
+    while count < 4:
+        count += 1
+        remainder, result = divmod(seconds, 60) if count < 3 else divmod(seconds, 24)
+        if seconds == 0 and remainder == 0:
+            break
+        time_list.append(int(result))
+        seconds = int(remainder)
+    hmm = len(time_list)
+    for x in range(hmm):
+        time_list[x] = str(time_list[x]) + time_suffix_list[x]
+    if len(time_list) == 4:
+        up_time += f"{time_list.pop()}, "
+    time_list.reverse()
+    up_time += ":".join(time_list)
+    return up_time
+
+subscribed = filters.create(is_subscribed)
