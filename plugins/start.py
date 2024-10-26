@@ -93,18 +93,6 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 
 
-
-# Base64 Encoding and Decoding for normal users
-async def encode(string):
-    return base64.b64encode(string.encode("utf-8")).decode("utf-8")
-
-async def decode(encoded_string):
-    try:
-        return base64.b64decode(encoded_string.encode("utf-8")).decode("utf-8")
-    except Exception as e:
-        logging.error(f"Error decoding normal string: {e}")
-        raise ValueError("Invalid normal link format.")
-
 # Base58 Encoding and Decoding for premium users
 async def encodeb(string):
     return base58.b58encode(string.encode("utf-8")).decode("utf-8")
