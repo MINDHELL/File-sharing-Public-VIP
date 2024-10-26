@@ -2,6 +2,7 @@
 from pymongo import MongoClient
 import asyncio
 import base64
+import base58  # Assuming `base58` library is installed
 import logging
 import os
 import random
@@ -91,6 +92,30 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
+
+
+# Base64 Encoding and Decoding for normal users
+async def encode(string):
+    return base64.b64encode(string.encode("utf-8")).decode("utf-8")
+
+async def decode(encoded_string):
+    try:
+        return base64.b64decode(encoded_string.encode("utf-8")).decode("utf-8")
+    except Exception as e:
+        logging.error(f"Error decoding normal string: {e}")
+        raise ValueError("Invalid normal link format.")
+
+# Base58 Encoding and Decoding for premium users
+async def encodeb(string):
+    return base58.b58encode(string.encode("utf-8")).decode("utf-8")
+
+async def decodeb(encoded_string):
+    try:
+        return base58.b58decode(encoded_string.encode("utf-8")).decode("utf-8")
+    except Exception as e:
+        logging.error(f"Error decoding premium string: {e}")
+        raise ValueError("Invalid premium link format.")
+
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
@@ -105,31 +130,37 @@ async def start_command(client: Client, message: Message):
     # Check if the user is a premium user
     premium_status = await is_premium_user(user_id)
 
-    # Handle base64 encoded string (if provided in the message)
+    # Handle encoded string in the message (if provided)
     if len(message.text) > 7:
-        base64_string = message.text.split(" ", 1)[1]
-        if not base64_string:
+        encoded_string = message.text.split(" ", 1)[1]
+        if not encoded_string:
             return
 
-        # Decode the link based on the user's premium status
+        # Decode based on user's premium status
         try:
-            decoded_string = await (decodeb(base64_string) if premium_status else decode(base64_string))
+            if premium_status:
+                decoded_string = await decodeb(encoded_string)
+            else:
+                decoded_string = await decode(encoded_string)
 
-            # Verify the decoded string has expected format
+            # Verify and process the decoded string for premium links
             if "get-" in decoded_string:
                 if not premium_status:
                     await message.reply_text("This link is for premium users only! Upgrade to access.")
                     return
                 decoded_string = decoded_string.replace("get-", "")
+        except ValueError:
+            await message.reply_text("Invalid link format.")
+            return
         except Exception as e:
-            logging.error(f"Error processing base64 string: {e}")
+            logging.error(f"Error processing encoded string: {e}")
             await message.reply_text("Invalid link format.")
             return
 
         # Process the decoded message and extract message IDs
         argument = decoded_string.split("-")
         ids = []
-        
+
         try:
             if len(argument) == 3:
                 start = int(argument[1]) // abs(client.db_channel.id)
@@ -180,6 +211,9 @@ async def start_command(client: Client, message: Message):
                     protect_content=PROTECT_CONTENT
                 )
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+            except Exception as e:
+                logging.error(f"Error sending message copy: {e}")
+
     else:
         # Default reply if no encoded link is provided
         reply_markup = InlineKeyboardMarkup([
@@ -198,6 +232,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
 
     
