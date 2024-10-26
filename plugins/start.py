@@ -91,7 +91,6 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
 
@@ -115,23 +114,14 @@ async def start_command(client: Client, message: Message):
         # Log the encoded string for debugging
         logging.info(f"Encoded string received: {encoded_string}")
 
-        # Initialize decoded_string
-        decoded_string = ""
-
         try:
-            if "get-" in encoded_string:
-                if not premium_status:
-                    await message.reply_text("This link is for premium users only! Upgrade to access.")
-                    return
-                
-                # Decode the premium link (double decode)
-                decoded_string = await decode_premium(encoded_string)
-                decoded_string = await decode(decoded_string)  # Ensure double decoding
+            # Decode in one step for premium users
+            decoded_string = await decode(encoded_string) if "get-" not in encoded_string else await decode(await decode_premium(encoded_string))
 
-            else:
-                # Decode as a normal link
-                decoded_string = await decode(encoded_string)
-
+            if decoded_string is None:
+                await message.reply_text("This link is for premium users only! Upgrade to access.")
+                return
+            
             logging.info(f"Decoded string: {decoded_string}")
 
             # Process the decoded message and extract message IDs
