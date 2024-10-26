@@ -93,6 +93,12 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 
 
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.errors import FloodWait
+import asyncio
+import logging
+
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
@@ -107,16 +113,17 @@ async def start_command(client: Client, message: Message):
     # Check if the user is a premium user
     premium_status = await is_premium_user(user_id)
 
-    # Handle the base64 encoded string (if provided)
+    # Handle base64 encoded string (if provided in the message)
     if len(message.text) > 7:
         base64_string = message.text.split(" ", 1)[1]
         if not base64_string:
             return
 
+        # Decode the link based on the user's premium status
         try:
-            decoded_string = await decode(base64_string)
+            decoded_string = await (decodeb(base64_string) if premium_status else decode(base64_string))
 
-            # Check for premium links
+            # Verify the decoded string has expected format
             if "get-" in decoded_string:
                 if not premium_status:
                     await message.reply_text("This link is for premium users only! Upgrade to access.")
@@ -124,9 +131,10 @@ async def start_command(client: Client, message: Message):
                 decoded_string = decoded_string.replace("get-", "")
         except Exception as e:
             logging.error(f"Error processing base64 string: {e}")
+            await message.reply_text("Invalid link format.")
             return
 
-        # Process the decoded message
+        # Process the decoded message and extract message IDs
         argument = decoded_string.split("-")
         ids = []
         
@@ -153,18 +161,21 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         for msg in messages:
-            caption = (CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name) 
-                       if CUSTOM_CAPTION and msg.document else msg.caption or "")
+            caption = (
+                CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name) 
+                if CUSTOM_CAPTION and msg.document else msg.caption or ""
+            )
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
                 sent_message = await msg.copy(
                     chat_id=user_id, 
                     caption=caption, 
-                    parse_mode=ParseMode.HTML, 
+                    parse_mode="HTML", 
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
+                # Schedule auto-delete task for sent message
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
                 await asyncio.sleep(0.5)
             except FloodWait as e:
@@ -172,19 +183,18 @@ async def start_command(client: Client, message: Message):
                 sent_message = await msg.copy(
                     chat_id=user_id, 
                     caption=caption, 
-                    parse_mode=ParseMode.HTML, 
+                    parse_mode="HTML", 
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
     else:
-        reply_markup = InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("😊 About Me", callback_data="about"), 
-                 InlineKeyboardButton("🔒 Close", callback_data="close")],
-                [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")]
-            ]
-        )
+        # Default reply if no encoded link is provided
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("😊 About Me", callback_data="about"), 
+             InlineKeyboardButton("🔒 Close", callback_data="close")],
+            [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")]
+        ])
         welcome_text = f"Welcome {message.from_user.first_name}! " + (
             "As a premium user, you have access to exclusive content!"
             if premium_status else
@@ -196,6 +206,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
     
 #=====================================================================================##
