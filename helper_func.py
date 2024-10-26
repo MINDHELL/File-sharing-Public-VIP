@@ -56,15 +56,18 @@ async def decode(base64_string):
     return string
 
 async def encodeb(string):
-    string_bytes = string.encode("ascii")
-    base58_string = base58.b58encode(string_bytes).decode("ascii")
+    string_bytes = string.encode("utf-8")
+    base58_string = base58.b58encode(string_bytes).decode("utf-8")
+    # Strip any unwanted padding (if applicable)
     return base58_string
 
 async def decodeb(base58_string):
-    string_bytes = base58.b58decode(base58_string.encode("ascii"))
-    string = string_bytes.decode("ascii")
-    return string
-
+    try:
+        string_bytes = base58.b58decode(base58_string.encode("utf-8"))
+        return string_bytes.decode("utf-8")
+    except Exception as e:
+        logging.error(f"Error decoding premium string: {e}")
+        raise ValueError("Invalid premium link format.")
 
 async def get_messages(client, message_ids):
     messages = []
