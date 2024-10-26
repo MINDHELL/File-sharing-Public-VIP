@@ -2,7 +2,6 @@
 from pymongo import MongoClient
 import asyncio
 import base64
-import base58  # Assuming `base58` library is installed
 import logging
 import os
 import random
@@ -115,7 +114,7 @@ async def start_command(client: Client, message: Message):
         # Decode based on user's premium status
         try:
             if premium_status:
-                decoded_string = await decodeb(encoded_string)
+                decoded_string = await decode_premium(encoded_string)
             else:
                 decoded_string = await decode(encoded_string)
 
@@ -208,6 +207,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
 
 
