@@ -14,7 +14,7 @@ pytz
 requests
 bs4
 shortzy
-base58
+
 aiohttp
 aiofiles
 asyncio
