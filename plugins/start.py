@@ -99,6 +99,7 @@ async def start_command(client: Client, message: Message):
     if not await present_user(user_id):
         try:
             await add_user(user_id)
+            logging.info(f"Added new user: {user_id}")
         except Exception as e:
             logging.error(f"Error adding user {user_id}: {e}")
 
@@ -111,88 +112,91 @@ async def start_command(client: Client, message: Message):
         if not encoded_string:
             return
 
-        # Decode based on user's premium status
-        try:
-            if premium_status:
-                decoded_string = await decode_premium(encoded_string)
-            else:
-                decoded_string = await decode(encoded_string)
+        # Log the encoded string for debugging
+        logging.info(f"Encoded string received: {encoded_string}")
 
-            # Verify and process the decoded string for premium links
-            if "get-" in decoded_string:
+        # Decode based on the user's premium status
+        try:
+            if "get-" in encoded_string:
                 if not premium_status:
                     await message.reply_text("This link is for premium users only! Upgrade to access.")
                     return
-                decoded_string = decoded_string.replace("get-", "")
-        except ValueError:
-            await message.reply_text("Invalid link format.")
-            return
-        except Exception as e:
-            logging.error(f"Error processing encoded string: {e}")
-            await message.reply_text("Invalid link format.")
-            return
+                # If the user is premium, decode as a premium link
+                decoded_string = await decode_premium(encoded_string)
+            else:
+                # Decode as a normal link
+                decoded_string = await decode(encoded_string)
 
-        # Process the decoded message and extract message IDs
-        argument = decoded_string.split("-")
-        ids = []
+            logging.info(f"Decoded string: {decoded_string}")
 
-        try:
+            # Process the decoded message and extract message IDs
+            argument = decoded_string.split("-")
+            ids = []
+
+            # Logic to calculate message IDs
             if len(argument) == 3:
                 start = int(argument[1]) // abs(client.db_channel.id)
                 end = int(argument[2]) // abs(client.db_channel.id)
                 ids = range(start, end + 1) if start <= end else []
             elif len(argument) == 2:
                 ids = [int(argument[1]) // abs(client.db_channel.id)]
-        except Exception as e:
-            logging.error(f"Error calculating message IDs: {e}")
-            return
 
-        temp_msg = await message.reply("Please wait... 1")
+            temp_msg = await message.reply("Please wait... 1")
 
-        # Fetch and send the requested messages
-        try:
-            messages = await get_messages(client, ids)
-        except Exception as e:
-            await message.reply_text("Something went wrong!")
-            logging.error(f"Error fetching messages: {e}")
-            return
-        await temp_msg.delete()
-
-        for msg in messages:
-            caption = (
-                CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name) 
-                if CUSTOM_CAPTION and msg.document else msg.caption or ""
-            )
-            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
-
+            # Fetch and send the requested messages
             try:
-                sent_message = await msg.copy(
-                    chat_id=user_id, 
-                    caption=caption, 
-                    parse_mode="HTML", 
-                    reply_markup=reply_markup, 
-                    protect_content=PROTECT_CONTENT
-                )
-                # Schedule auto-delete task for sent message
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
-                await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
-                    chat_id=user_id, 
-                    caption=caption, 
-                    parse_mode="HTML", 
-                    reply_markup=reply_markup, 
-                    protect_content=PROTECT_CONTENT
-                )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                messages = await get_messages(client, ids)
             except Exception as e:
-                logging.error(f"Error sending message copy: {e}")
+                await message.reply_text("Something went wrong while fetching messages!")
+                logging.error(f"Error fetching messages: {e}")
+                return
+
+            await temp_msg.delete()
+
+            for msg in messages:
+                caption = (
+                    CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name)
+                    if CUSTOM_CAPTION and msg.document else msg.caption or ""
+                )
+                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+
+                try:
+                    sent_message = await msg.copy(
+                        chat_id=user_id,
+                        caption=caption,
+                        parse_mode="HTML",
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    # Schedule auto-delete task for sent message
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                    await asyncio.sleep(0.5)
+                except FloodWait as e:
+                    await asyncio.sleep(e.x)
+                    sent_message = await msg.copy(
+                        chat_id=user_id,
+                        caption=caption,
+                        parse_mode="HTML",
+                        reply_markup=reply_markup,
+                        protect_content=PROTECT_CONTENT
+                    )
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                except Exception as e:
+                    logging.error(f"Error sending message copy: {e}")
+
+        except ValueError:
+            await message.reply_text("Invalid link format.")
+            logging.error("Invalid link format received.")
+            return
+        except Exception as e:
+            logging.error(f"Error processing encoded string: {e}")
+            await message.reply_text("An error occurred while processing the link.")
+            return
 
     else:
         # Default reply if no encoded link is provided
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("😊 About Me", callback_data="about"), 
+            [InlineKeyboardButton("😊 About Me", callback_data="about"),
              InlineKeyboardButton("🔒 Close", callback_data="close")],
             [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")]
         ])
