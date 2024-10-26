@@ -6,7 +6,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7413748827:AAHGW5KP6V8CPIhE3sUJPwdHAUq7MkNKzRo")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7447026397:AAHeIQzJGiOxpW1ud5EbM8pqNOxqUAPx3NI")
 APP_ID = int(os.environ.get("APP_ID", "22505271"))
 API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
  
@@ -35,10 +35,10 @@ DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://ultroidxTeam:ultroidxTeam
 DB_NAME = os.environ.get("DATABASE_NAME", "Cluser10")
 
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002075726565")) #database save channel id 
-FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "0"))
-FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "0"))
-FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "0"))
-FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "0"))
+FORCE_SUB_CHANNEL = int(os.environ.get("FORCE_SUB_CHANNEL", "-1002182435006"))
+FORCE_SUB_CHANNEL2 = int(os.environ.get("FORCE_SUB_CHANNEL2", "-1002182435006"))
+FORCE_SUB_CHANNEL3 = int(os.environ.get("FORCE_SUB_CHANNEL3", "-1002182435006"))
+FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "-1002182435006"))
 
 #Shortner (token system) 
 
