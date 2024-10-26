@@ -35,7 +35,7 @@ async def channel_post(client: Client, message: Message):
     
     # Encoding links
     normal_link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
-    premium_link = f"https://t.me/{client.username}?start={await encodeb(premium_string)}"
+    premium_link = f"https://t.me/{client.username}?start={await encode_premium(premium_string)}"
 
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
