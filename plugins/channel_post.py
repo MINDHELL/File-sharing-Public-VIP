@@ -30,7 +30,7 @@ async def channel_post(client: Client, message: Message):
 
     # Generate normal and premium links
     message_id_factor = post_message.id * abs(client.db_channel.id)
-    normal_string = f"get-{message_id_factor}"
+    normal_string = f"got-{message_id_factor}"
     premium_string = f"get-{message_id_factor}"
     
     # Encoding links
