@@ -126,8 +126,7 @@ async def start_command(client: Client, message: Message):
                 
                 # Decode the premium link (double decode)
                 decoded_string = await decode_premium(encoded_string)
-                # If it needs to be decoded again, do it here
-                decoded_string = await decode(decoded_string)
+                decoded_string = await decode(decoded_string)  # Ensure double decoding
 
             else:
                 # Decode as a normal link
@@ -217,6 +216,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
 
 
