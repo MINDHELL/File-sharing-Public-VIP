@@ -92,18 +92,6 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
-
-# Base58 Encoding and Decoding for premium users
-async def encodeb(string):
-    return base58.b58encode(string.encode("utf-8")).decode("utf-8")
-
-async def decodeb(encoded_string):
-    try:
-        return base58.b58decode(encoded_string.encode("utf-8")).decode("utf-8")
-    except Exception as e:
-        logging.error(f"Error decoding premium string: {e}")
-        raise ValueError("Invalid premium link format.")
-
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
