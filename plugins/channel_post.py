@@ -12,7 +12,10 @@ import logging
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 
-@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(['start','users','getpremiumusers','broadcast','batch','genlink','upi', 'myplan' , 'plans' ,'stats','removepr','addpr']))
+# Assuming ADMINS, DISABLE_CHANNEL_BUTTON, and encode, encodeb functions are defined elsewhere
+COMMANDS = ['start', 'users', 'getpremiumusers', 'broadcast', 'batch', 'genlink', 'upi', 'myplan', 'plans', 'stats', 'removepr', 'addpr']
+
+@Bot.on_message(filters.private & filters.user(ADMINS) & ~filters.command(COMMANDS))
 async def channel_post(client: Client, message: Message):
     reply_text = await message.reply_text("Please Wait... 4!", quote=True)
     try:
@@ -25,19 +28,19 @@ async def channel_post(client: Client, message: Message):
         await reply_text.edit_text("Something went wrong!")
         return
 
-    normal_string = f"got-{post_message.id * abs(client.db_channel.id)}"
-    premium_string = f"get-{post_message.id * abs(client.db_channel.id)}"
-    premium_base64 = await encode(premium_string)
-
-    link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
+    # Generate normal and premium links
+    message_id_factor = post_message.id * abs(client.db_channel.id)
+    normal_string = f"get-{message_id_factor}"
+    premium_string = f"get-{message_id_factor}"
     
-    normal_link = link
-    premium_link = f"https://t.me/{client.username}?start={premium_base64}"
+    # Encoding links
+    normal_link = f"https://t.me/{client.username}?start={await encode(normal_string)}"
+    premium_link = f"https://t.me/{client.username}?start={await encodeb(premium_string)}"
 
-    reply_markup = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
-          InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]]
-    )
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
+         InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]
+    ])
 
     try:
         await reply_text.edit(
@@ -53,9 +56,10 @@ async def channel_post(client: Client, message: Message):
         try:
             await post_message.edit_reply_markup(reply_markup)
         except Exception as edit_error:
-            logging.error(f"Error editing reply markup after flood wait 3: {edit_error}")
+            logging.error(f"Error editing reply markup after flood wait: {edit_error}")
     except Exception as e:
-        logging.error(f"Error editing reply markup 2 : {e}")
+        logging.error(f"Error editing reply markup: {e}")
+
 
 
 @Bot.on_message(filters.channel & filters.incoming & filters.chat(CHANNEL_ID))
