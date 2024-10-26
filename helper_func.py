@@ -1,4 +1,5 @@
 import base64
+import base58
 import re
 import asyncio
 from pyrogram import filters
@@ -38,10 +39,13 @@ async def is_subscribed(filter, client, update):
 
     return True
 
+#import base64
+#import base58  # Make sure you install this library first.
+
 async def encode(string):
     string_bytes = string.encode("ascii")
     base64_bytes = base64.urlsafe_b64encode(string_bytes)
-    base64_string = (base64_bytes.decode("ascii")).strip("=")
+    base64_string = base64_bytes.decode("ascii").strip("=")
     return base64_string
 
 async def decode(base64_string):
@@ -50,6 +54,17 @@ async def decode(base64_string):
     string_bytes = base64.urlsafe_b64decode(base64_bytes)
     string = string_bytes.decode("ascii")
     return string
+
+async def encodeb(string):
+    string_bytes = string.encode("ascii")
+    base58_string = base58.b58encode(string_bytes).decode("ascii")
+    return base58_string
+
+async def decodeb(base58_string):
+    string_bytes = base58.b58decode(base58_string.encode("ascii"))
+    string = string_bytes.decode("ascii")
+    return string
+
 
 async def get_messages(client, message_ids):
     messages = []
