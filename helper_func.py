@@ -55,6 +55,21 @@ async def decode(base64_string):
     string = string_bytes.decode("ascii")
     return string
 
+async def encode_premium(string):
+    # First encoding
+    first_encoding = await encode(string)
+    # Second encoding
+    second_encoding = await encode(first_encoding)
+    return second_encoding
+
+async def decode_premium(base64_string):
+    # First decoding
+    first_decoding = await decode(base64_string)
+    # Second decoding
+    second_decoding = await decode(first_decoding)
+    return second_decoding
+
+
 async def encodeb(string):
     string_bytes = string.encode("utf-8")
     base58_string = base58.b58encode(string_bytes).decode("utf-8")
