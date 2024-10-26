@@ -1,5 +1,4 @@
 import base64
-import base58
 import re
 import asyncio
 from pyrogram import filters
@@ -69,20 +68,6 @@ async def decode_premium(base64_string):
     second_decoding = await decode(first_decoding)
     return second_decoding
 
-
-async def encodeb(string):
-    string_bytes = string.encode("utf-8")
-    base58_string = base58.b58encode(string_bytes).decode("utf-8")
-    # Strip any unwanted padding (if applicable)
-    return base58_string
-
-async def decodeb(base58_string):
-    try:
-        string_bytes = base58.b58decode(base58_string.encode("utf-8"))
-        return string_bytes.decode("utf-8")
-    except Exception as e:
-        logging.error(f"Error decoding premium string: {e}")
-        raise ValueError("Invalid premium link format.")
 
 async def get_messages(client, message_ids):
     messages = []
