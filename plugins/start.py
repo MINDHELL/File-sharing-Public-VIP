@@ -115,14 +115,20 @@ async def start_command(client: Client, message: Message):
         # Log the encoded string for debugging
         logging.info(f"Encoded string received: {encoded_string}")
 
-        # Decode based on the user's premium status
+        # Initialize decoded_string
+        decoded_string = ""
+
         try:
             if "get-" in encoded_string:
                 if not premium_status:
                     await message.reply_text("This link is for premium users only! Upgrade to access.")
                     return
-                # If the user is premium, decode as a premium link
+                
+                # Decode the premium link (double decode)
                 decoded_string = await decode_premium(encoded_string)
+                # If it needs to be decoded again, do it here
+                decoded_string = await decode(decoded_string)
+
             else:
                 # Decode as a normal link
                 decoded_string = await decode(encoded_string)
