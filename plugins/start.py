@@ -19,7 +19,39 @@ from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
 #from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import base64
 
+async def encode(string):
+    string_bytes = string.encode("ascii")
+    base64_bytes = base64.urlsafe_b64encode(string_bytes)
+    base64_string = base64_bytes.decode("ascii").strip("=")
+    return base64_string
+
+async def decode(base64_string):
+    base64_string = base64_string.strip("=")
+    base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
+    string_bytes = base64.urlsafe_b64decode(base64_bytes)
+    string = string_bytes.decode("ascii")
+    return string
+
+async def encode_premium(string):
+    # First encoding
+    first_encoding = await encode(string)
+    # Second encoding
+    second_encoding = await encode(first_encoding)
+    return second_encoding
+
+async def decode_premium(encoded_string):
+    try:
+        # Decode in a loop until no more base64 content is found
+        decoded_string = encoded_string
+        while decoded_string and "base64" in decoded_string:
+            decoded_string = await decode(decoded_string)
+        return decoded_string
+    except Exception as e:
+        logging.error(f"Error in premium decoding: {e}")
+        return None
+        
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -117,17 +149,14 @@ async def start_command(client: Client, message: Message):
         logging.info(f"Encoded string received: {encoded_string}")
 
         try:
-            # Multi-step decoding logic
-            decoded_string = encoded_string
-            while "get-" not in decoded_string and "base64" in decoded_string:
-                # Decode the string repeatedly if "base64" is found after each decode
-                decoded_string = await decode(decoded_string)
-
+            # Use premium decoding for premium users
+            decoded_string = await decode_premium(encoded_string) if premium_status else await decode(encoded_string)
+            
             if decoded_string is None or "get-" in decoded_string:
                 await message.reply_text("This link is for premium users only! Upgrade to access.")
                 return
             
-            logging.info(f"Decoded string: {decoded_string}")
+            logging.info(f"Final Decoded string: {decoded_string}")
 
             # Process the decoded message and extract message IDs
             argument = decoded_string.split("-")
@@ -211,6 +240,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+        
         
 
 
