@@ -72,8 +72,7 @@ async def remove_premium_user(user_id):
     )
 
 async def get_user_subscription(user_id):
-    user = pusers.find_one({"user_id": user_i
-                            d})
+    user = pusers.find_one({"user_id": user_id})
     if user:
         return user.get("is_premium", False), user.get("expiry_time", None)
     return False, None
