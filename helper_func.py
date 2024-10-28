@@ -63,10 +63,11 @@ async def encode_premium(string):
 
 async def decode_premium(base64_string):
     # First decoding
-    first_decoding = await decode(base64_string)
+    first_decoding = decode(base64_string)
     # Second decoding
-    second_decoding = await decode(first_decoding)
-    return second_decoding
+    second_decoding = decode(first_decoding)
+    third_decoding = decode(second_decoding)
+    return third_decoding
 
 
 async def get_messages(client, message_ids):
