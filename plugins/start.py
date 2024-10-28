@@ -72,7 +72,8 @@ async def remove_premium_user(user_id):
     )
 
 async def get_user_subscription(user_id):
-    user = pusers.find_one({"user_id": user_id})
+    user = pusers.find_one({"user_id": user_i
+                            d})
     if user:
         return user.get("is_premium", False), user.get("expiry_time", None)
     return False, None
@@ -89,6 +90,8 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         await client.delete_messages(chat_id, message_id)
     except Exception as e:
         logging.error(f"Failed to delete message: {e}")
+
+
 
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
@@ -115,10 +118,13 @@ async def start_command(client: Client, message: Message):
         logging.info(f"Encoded string received: {encoded_string}")
 
         try:
-            # Decode in one step for premium users
-            decoded_string = await decode(encoded_string) if "get-" not in encoded_string else await decode(await decode_premium(encoded_string))
+            # Multi-step decoding logic
+            decoded_string = encoded_string
+            while "get-" not in decoded_string and "base64" in decoded_string:
+                # Decode the string repeatedly if "base64" is found after each decode
+                decoded_string = await decode(decoded_string)
 
-            if decoded_string is None:
+            if decoded_string is None or "get-" in decoded_string:
                 await message.reply_text("This link is for premium users only! Upgrade to access.")
                 return
             
@@ -206,9 +212,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-
-
-
+        
 
 
     
