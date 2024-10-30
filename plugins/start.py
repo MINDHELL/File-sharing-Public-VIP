@@ -90,6 +90,9 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
     except Exception as e:
         logging.error(f"Failed to delete message: {e}")
 
+       # logging.error(f"Failed to delete message: {e}")
+
+
 
 
 @Bot.on_message(filters.command('start') & filters.private)
@@ -208,7 +211,6 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-  
 
     
 #=====================================================================================##
