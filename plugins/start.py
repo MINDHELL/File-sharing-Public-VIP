@@ -13,45 +13,13 @@ from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
-from hashlib import sha256
+
 from bot import Bot
 from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
 #from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import base64
 
-async def encode(string):
-    string_bytes = string.encode("ascii")
-    base64_bytes = base64.urlsafe_b64encode(string_bytes)
-    base64_string = base64_bytes.decode("ascii").strip("=")
-    return base64_string
-
-async def decode(base64_string):
-    base64_string = base64_string.strip("=")
-    base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
-    string_bytes = base64.urlsafe_b64decode(base64_bytes)
-    string = string_bytes.decode("ascii")
-    return string
-
-async def encode_premium(string):
-    # First encoding
-    first_encoding = await encode(string)
-    # Second encoding
-    second_encoding = await encode(first_encoding)
-    return second_encoding
-
-async def decode_premium(encoded_string):
-    try:
-        # Decode in a loop until no more base64 content is found
-        decoded_string = encoded_string
-        while decoded_string and "base64" in decoded_string:
-            decoded_string = await decode(decoded_string)
-        return decoded_string
-    except Exception as e:
-        logging.error(f"Error in premium decoding: {e}")
-        return None
-        
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -124,111 +92,111 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
 
 
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
+@Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
-    user_id = message.from_user.id
+    id = message.from_user.id
 
     # Check if the user exists in the database
-    if not await present_user(user_id):
+    if not await present_user(id):
         try:
-            await add_user(user_id)
-            logging.info(f"Added new user: {user_id}")
+            await add_user(id)
         except Exception as e:
-            logging.error(f"Error adding user {user_id}: {e}")
+            logging.error(f"Error adding user {id}: {e}")
 
     # Check if the user is a premium user
-    premium_status = await is_premium_user(user_id)
+    premium_status = await is_premium_user(id)
 
-    # Handle encoded string in the message (if provided)
+    # Handle the base64 encoded string (if provided)
     if len(message.text) > 7:
-        encoded_string = message.text.split(" ", 1)[1]
-        if not encoded_string:
-            return
+        base64_string = message.text.split(" ", 1)[1]
+        is_premium_link = False
 
-        # Log the encoded string for debugging
-        logging.info(f"Encoded string received: {encoded_string}")
-
+        # Try to decode as a premium link
         try:
-            # Use premium decoding for premium users
-            decoded_string = await decode_premium(encoded_string) if premium_status else await decode(encoded_string)
-            
-            if decoded_string is None or "get-" in decoded_string:
-                await message.reply_text("This link is for premium users only! Upgrade to access.")
-                return
-            
-            logging.info(f"Final Decoded string: {decoded_string}")
-
-            # Process the decoded message and extract message IDs
-            argument = decoded_string.split("-")
-            ids = []
-
-            # Logic to calculate message IDs
-            if len(argument) == 3:
-                start = int(argument[1]) // abs(client.db_channel.id)
-                end = int(argument[2]) // abs(client.db_channel.id)
-                ids = range(start, end + 1) if start <= end else []
-            elif len(argument) == 2:
-                ids = [int(argument[1]) // abs(client.db_channel.id)]
-
-            temp_msg = await message.reply("Please wait... 1")
-
-            # Fetch and send the requested messages
+            decoded_string = await decode_premium(base64_string)
+            is_premium_link = True
+        except:
+            # Fallback to decode as a normal link if not premium
             try:
-                messages = await get_messages(client, ids)
+                decoded_string = await decode(base64_string)
             except Exception as e:
-                await message.reply_text("Something went wrong while fetching messages!")
-                logging.error(f"Error fetching messages: {e}")
+                print(f"Decoding error: {e}")
+                await message.reply_text("Invalid link provided.")
                 return
 
-            await temp_msg.delete()
-
-            for msg in messages:
-                caption = (
-                    CUSTOM_CAPTION.format(previouscaption=msg.caption.html, filename=msg.document.file_name)
-                    if CUSTOM_CAPTION and msg.document else msg.caption or ""
-                )
-                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
-
-                try:
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode="HTML",
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    # Schedule auto-delete task for sent message
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
-                    await asyncio.sleep(0.5)
-                except FloodWait as e:
-                    await asyncio.sleep(e.x)
-                    sent_message = await msg.copy(
-                        chat_id=user_id,
-                        caption=caption,
-                        parse_mode="HTML",
-                        reply_markup=reply_markup,
-                        protect_content=PROTECT_CONTENT
-                    )
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
-                except Exception as e:
-                    logging.error(f"Error sending message copy: {e}")
-
-        except ValueError:
-            await message.reply_text("Invalid link format.")
-            logging.error("Invalid link format received.")
+        # Check premium status if it's a premium link
+        if is_premium_link and not premium_status:
+            await message.reply_text("This link is for premium users only! Upgrade to access.")
             return
+
+        # Process the message IDs based on the argument length
+        argument = decoded_string.split("-")
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+                ids = range(start, end + 1) if start <= end else []
+            except Exception as e:
+                logging.error(f"Error calculating message IDs: {e}")
+                return
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                logging.error(f"Error calculating single message ID: {e}")
+                return
+
+        temp_msg = await message.reply("Please wait...")
+
+        # Fetch and send the requested messages
+        try:
+            messages = await get_messages(client, ids)
         except Exception as e:
-            logging.error(f"Error processing encoded string: {e}")
-            await message.reply_text("An error occurred while processing the link.")
+            await message.reply_text("Something went wrong!")
+            logging.error(f"Error fetching messages: {e}")
             return
+        await temp_msg.delete()
+
+        for msg in messages:
+            caption = CUSTOM_CAPTION.format(
+                previouscaption="" if not msg.caption else msg.caption.html,
+                filename=msg.document.file_name
+            ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
+
+            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+
+            try:
+                # Send the message to the user and schedule deletion after 1 hour
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+
+                # Schedule deletion of the message after 1 hour (3600 seconds)
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                await asyncio.sleep(0.5)
+
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                sent_message = await msg.copy(
+                    chat_id=message.from_user.id, 
+                    caption=caption, 
+                    parse_mode=ParseMode.HTML, 
+                    reply_markup=reply_markup, 
+                    protect_content=PROTECT_CONTENT
+                )
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
 
     else:
-        # Default reply if no encoded link is provided
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("😊 About Me", callback_data="about"),
-             InlineKeyboardButton("🔒 Close", callback_data="close")],
-            [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")]
-        ])
+        reply_markup = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("😊 About Me", callback_data="about"), InlineKeyboardButton("🔒 Close", callback_data="close")],
+                [InlineKeyboardButton("✨ Upgrade to Premium" if not premium_status else "✨ Premium Content", callback_data="premium_content")],
+            ]
+        )
         welcome_text = f"Welcome {message.from_user.first_name}! " + (
             "As a premium user, you have access to exclusive content!"
             if premium_status else
@@ -240,9 +208,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-        
-        
-
+  
 
     
 #=====================================================================================##
