@@ -38,13 +38,10 @@ async def is_subscribed(filter, client, update):
 
     return True
 
-#import base64
-#import base58  # Make sure you install this library first.
-
 async def encode(string):
     string_bytes = string.encode("ascii")
     base64_bytes = base64.urlsafe_b64encode(string_bytes)
-    base64_string = base64_bytes.decode("ascii").strip("=")
+    base64_string = (base64_bytes.decode("ascii")).strip("=")
     return base64_string
 
 async def decode(base64_string):
@@ -54,21 +51,17 @@ async def decode(base64_string):
     string = string_bytes.decode("ascii")
     return string
 
-async def encode_premium(string):
-    # First encoding
-    first_encoding = await encode(string)
-    # Second encoding
+async def encode_premium(vipstring):
+    # Double encoding for premium links
+    first_encoding = await encode(vipstring)
     second_encoding = await encode(first_encoding)
     return second_encoding
 
-async def decode_premium(base64_string):
-    # First decoding
-    first_decoding = decode(base64_string)
-    # Second decoding
-    second_decoding = decode(first_decoding)
-    third_decoding = decode(second_decoding)
-    return third_decoding
-
+async def decode_premium(second_encoding):
+    # Double decoding for premium links
+    first_decoding = await decode(second_encoding)
+    second_decoding = await decode(first_decoding)
+    return second_decoding
 
 async def get_messages(client, message_ids):
     messages = []
