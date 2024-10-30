@@ -6,7 +6,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7447026397:AAHeIQzJGiOxpW1ud5EbM8pqNOxqUAPx3NI")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7413748827:AAEBdAOOv-tziB_mNt6UPpR54gj0IhYrIHE")
 APP_ID = int(os.environ.get("APP_ID", "22505271"))
 API_HASH = os.environ.get("API_HASH", "c89a94fcfda4bc06524d0903977fc81e")
  
@@ -42,8 +42,8 @@ FORCE_SUB_CHANNEL4 = int(os.environ.get("FORCE_SUB_CHANNEL4", "-1002182435006"))
 
 #Shortner (token system) 
 
-SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "api.shareus.io") 
-SHORTLINK_API = os.environ.get("SHORTLINK_API", "PUIAQBIFrydvLhIzAOeGV8yZppu2")
+SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "instantearn.in") 
+SHORTLINK_API = os.environ.get("SHORTLINK_API", "47070a188ed5491b80f3b70adde6f9954a1e6ee7")
 VERIFY_EXPIRE = int(os.environ.get('VERIFY_EXPIRE', 86400)) # Add time in seconds
 IS_VERIFY = os.environ.get("IS_VERIFY", "True")
 TUT_VID = os.environ.get("TUT_VID", "https://t.me/Ultroid_Official/18")
