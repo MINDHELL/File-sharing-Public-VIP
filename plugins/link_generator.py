@@ -70,18 +70,15 @@ async def link_generator(client: Client, message: Message):
             await channel_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is not taken from DB Channel", quote = True)
             continue
 
-    converted_id = post_message.id * abs(client.db_channel.id)
-    string = f"get-{converted_id}"
-    vipstring = f"vip-{converted_id}"
-    
-    # Encode both normal and premium strings
+    string = f"get-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
+    vipstring = f"vip-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
+
     base64_string = await encode(string)
     vipbase64_string = await encode_premium(vipstring)
-    
+
     # Generate normal and premium links
     normal_link = f"https://t.me/{client.username}?start={base64_string}"
-    premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
-    
+    premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"    
 
     await channel_message.reply_text(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", quote=True, reply_markup=reply_markup)
 
