@@ -59,7 +59,7 @@ async def my_plan(bot: Bot, message: Message):
         minutes_left = (time_left % 3600) // 60
 
         response_text = (
-            f"✅ Your premium subscription is active.\n"
+            f"✅ Your premium subscription is active.\n\n"
             f"🕒 Time remaining: {days_left} days, {hours_left} hours, {minutes_left} minutes."
         )
         
@@ -73,9 +73,11 @@ async def my_plan(bot: Bot, message: Message):
     elif is_premium and time_left <= 0:
         # Subscription expired
         response_text = (
-            "⚠️ Your premium subscription has expired.\n"
+            "⚠️ Your premium subscription has expired.\n\n"
+            " "
             "Renew your subscription to continue enjoying premium features."
-            "\nClick here : /plans"
+            " "
+            "Check : /plans"
         )
         
         buttons = InlineKeyboardMarkup(
@@ -87,7 +89,7 @@ async def my_plan(bot: Bot, message: Message):
 
     else:
         # User is not a premium member
-        response_text = "❌ You are not a premium user. View available plans to upgrade."
+        response_text = "❌ You are not a premium user. \nView available plans to upgrade. \n\nClick HERE : \plans"
         
         buttons = InlineKeyboardMarkup(
             [
@@ -110,10 +112,7 @@ async def show_plans(bot: Bot, message: Message):
 3. 30 Days Premium - 50₹
 4. 90 Days Premium - 100₹
 
-🎁 <b>Premium Features:</b>
-- No need for verification
-- Direct access to files
-- Ad-free experience
+🎁 <b>Premium Features Applied</b>
 
 To subscribe, click the "Pay via UPI" button below.
 """
