@@ -46,7 +46,7 @@ async def channel_post(client: Client, message: Message):
 
     await reply_text.edit(
         f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @{CHANNEL}", 
-        reply_markup=reply_markup, disable_web_page_preview=True
+        disable_web_page_preview=True
     )
 
     if not DISABLE_CHANNEL_BUTTON:
