@@ -171,18 +171,21 @@ async def start_command(client: Client, message: Message):
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
-                # Send the message to the user and schedule deletion
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
                     protect_content=PROTECT_CONTENT
                 )
-
-                # Schedule deletion of the message
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
-                await asyncio.sleep(0.5)
-
+            
+                # Check if the message was successfully sent
+                if sent_message:
+                    # Schedule deletion of the message after the specified delay (e.g., 10 minutes)
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
+                    await asyncio.sleep(0.5)
+                else:
+                    print("Message copy failed; sent_message is None.")
+            
             except FloodWait as e:
                 await asyncio.sleep(e.x)
                 sent_message = await msg.copy(
@@ -191,7 +194,13 @@ async def start_command(client: Client, message: Message):
                     parse_mode=ParseMode.HTML,
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
+            
+                # Again, check if the message was successfully sent
+                if sent_message:
+                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
+                else:
+                    print("Message copy failed on FloodWait; sent_message is None.")
+    
 
     else:
         reply_markup = InlineKeyboardMarkup(
