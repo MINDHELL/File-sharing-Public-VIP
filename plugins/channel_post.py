@@ -40,8 +40,8 @@ async def channel_post(client: Client, message: Message):
     premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
     
     reply_markup = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🔁 Share Normal URL", url=f'https://telegram.me/share/url?url={normal_link}'),
-          InlineKeyboardButton("🔁 Share Premium URL", url=f'https://telegram.me/share/url?url={premium_link}')]]
+        [[InlineKeyboardButton("🔁 Public", url=f'https://t.me/share/url?url={normal_link}'),
+          InlineKeyboardButton("🔁 Premium", url=f'https://t.me/share/url?url={premium_link}')]]
     )
 
     await reply_text.edit(
