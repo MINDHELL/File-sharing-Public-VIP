@@ -5,7 +5,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from bot import Bot
 from config import ADMINS
-from helper_func import encode, get_message_id
+from helper_func import *
 
 
 
@@ -34,13 +34,28 @@ async def batch(client: Client, message: Message):
         else:
             await second_message.reply("❌ Error\n\nThis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
             continue
+   # Generate unique IDs and links
+    converted_id = f_msg_id * abs(client.db_channel.id) - s_msg_id * abs(client.db_channel.id)
+    string = f"get-{converted_id}"
+    vipstring = f"vip-{converted_id}"
 
-
-    string = f"get-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
+    # Encode both normal and premium strings
     base64_string = await encode(string)
-    link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
-    await second_message.reply_text(f"<b>Here is your link</b>\n\n{link}", quote=True, reply_markup=reply_markup)
+    vipbase64_string = await encode_premium(vipstring)
+
+    # Generate normal and premium links
+    normal_link = f"https://t.me/{client.username}?start={base64_string}"
+    premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
+
+    # Create share URL button
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={normal_link}')]])
+
+    # Send links to user
+    await message.reply(
+        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official",
+        reply_markup=reply_markup,
+        disable_web_page_preview=True
+    )
 
 
 
@@ -59,10 +74,20 @@ async def link_generator(client: Client, message: Message):
             await channel_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is not taken from DB Channel", quote = True)
             continue
 
-    base64_string = await encode(f"get-{msg_id * abs(client.db_channel.id)}")
-    link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
-    await channel_message.reply_text(f"<b>Here is your link</b>\n\n{link}", quote=True, reply_markup=reply_markup)
+    converted_id = post_message.id * abs(client.db_channel.id)
+    string = f"get-{converted_id}"
+    vipstring = f"vip-{converted_id}"
+    
+    # Encode both normal and premium strings
+    base64_string = await encode(string)
+    vipbase64_string = await encode_premium(vipstring)
+    
+    # Generate normal and premium links
+    normal_link = f"https://t.me/{client.username}?start={base64_string}"
+    premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
+    
+
+    await channel_message.reply_text(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", quote=True, reply_markup=reply_markup)
 
 
 
