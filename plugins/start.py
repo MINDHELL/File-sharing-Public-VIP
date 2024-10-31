@@ -91,15 +91,6 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
-
-
-
-import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import FloodWait
-from pyrogram.enums import ParseMode
-
 # Bot command to handle /start command in private messages
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
