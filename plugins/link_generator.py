@@ -4,7 +4,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from bot import Bot
-from config import ADMINS
+from config import ADMINS , CHANNEL
 from helper_func import *
 
 
@@ -34,12 +34,11 @@ async def batch(client: Client, message: Message):
         else:
             await second_message.reply("❌ Error\n\nThis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
             continue
-   # Generate unique IDs and links
-    converted_id = f_msg_id * abs(client.db_channel.id) - s_msg_id * abs(client.db_channel.id)
-    string = f"get-{converted_id}"
-    vipstring = f"vip-{converted_id}"
 
-    # Encode both normal and premium strings
+
+    string = f"get-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
+    vipstring = f"vip-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
+
     base64_string = await encode(string)
     vipbase64_string = await encode_premium(vipstring)
 
@@ -47,12 +46,9 @@ async def batch(client: Client, message: Message):
     normal_link = f"https://t.me/{client.username}?start={base64_string}"
     premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
 
-    # Create share URL button
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={normal_link}')]])
-
     # Send links to user
     await message.reply(
-        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official",
+        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @{CHANNEL}",
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )
