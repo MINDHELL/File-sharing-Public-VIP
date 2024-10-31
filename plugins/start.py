@@ -205,7 +205,7 @@ async def start_command(client: Client, message: Message):
         welcome_text = f"Welcome {message.from_user.first_name}! " + (
             "As a premium user, you have access to exclusive content!"
             if premium_status else
-            "Enjoy using the bot. Upgrade to premium for more features! \n\n check your current plan : /myplan"
+            "Enjoy using the bot. Upgrade to premium for more features! \n\nCheck Your current Plan : /myplan"
         )
         await message.reply_text(
             text=welcome_text,
