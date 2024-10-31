@@ -49,9 +49,6 @@ async def channel_post(client: Client, message: Message):
         disable_web_page_preview=True
     )
 
-    if not DISABLE_CHANNEL_BUTTON:
-        await post_message.edit_reply_markup(reply_markup)
-
 
 
 
