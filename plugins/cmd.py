@@ -47,29 +47,57 @@ async def remove_premium(bot: Bot, message: Message):  # Changed `client: Client
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
 
-# /myplan command for user subscription status
+# /myplan command to check user subscription status
 @Bot.on_message(filters.command('myplan') & filters.private)
 async def my_plan(bot: Bot, message: Message):
     is_premium, expiry_time = await get_user_subscription(message.from_user.id)
+    time_left = int(expiry_time - time.time())
     
-    if is_premium:
-        time_left = expiry_time - time.time()
-        days_left = int(time_left / 86400)
-        response_text = f"✅ Your premium subscription is active. Time left: {days_left} days."
-        
-        buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Upgrade Plan", callback_data="show_plans")],
-             [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
+    if is_premium and time_left > 0:
+        days_left = time_left // 86400
+        hours_left = (time_left % 86400) // 3600
+        minutes_left = (time_left % 3600) // 60
+
+        response_text = (
+            f"✅ Your premium subscription is active.\n"
+            f"🕒 Time remaining: {days_left} days, {hours_left} hours, {minutes_left} minutes."
         )
-    else:
-        response_text = "❌ You are not a premium user."
         
         buttons = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("View Plans", callback_data="show_plans")],
-             [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]]
+            [
+                [InlineKeyboardButton("Upgrade Plan", callback_data="show_plans")],
+                [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]
+            ]
         )
 
-    await message.reply(response_text, reply_markup=buttons)
+    elif is_premium and time_left <= 0:
+        # Subscription expired
+        response_text = (
+            "⚠️ Your premium subscription has expired.\n"
+            "Renew your subscription to continue enjoying premium features."
+            "\nClick here : /plans"
+        )
+        
+        buttons = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("Renew Plan", callback_data="show_plans")],
+                [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]
+            ]
+        )
+
+    else:
+        # User is not a premium member
+        response_text = "❌ You are not a premium user. View available plans to upgrade."
+        
+        buttons = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("View Plans", callback_data="show_plans")],
+                [InlineKeyboardButton("Contact Support", url=f"https://t.me/{OWNER}")]
+            ]
+        )
+
+    await message.reply_text(response_text, reply_markup=buttons)
+
 
 # /plans command to show subscription plans
 @Bot.on_message(filters.command('plans') & filters.private)
