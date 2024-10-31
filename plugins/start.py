@@ -90,7 +90,6 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
     except Exception as e:
         logging.error(f"Failed to delete message: {e}")
 
-       # logging.error(f"Failed to delete message: {e}")
 
 
 
@@ -124,12 +123,12 @@ async def start_command(client: Client, message: Message):
                 decoded_string = await decode(base64_string)
             except Exception as e:
                 print(f"Decoding error: {e}")
-                await message.reply_text("Invalid link provided.")
+                await message.reply_text("Invalid link provided. \n\nGet help /upi")
                 return
 
         # Check premium status if it's a premium link
         if is_premium_link and not premium_status:
-            await message.reply_text("This link is for premium users only! Upgrade to access.")
+            await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan ")
             return
 
         # Process the message IDs based on the argument length
@@ -149,16 +148,19 @@ async def start_command(client: Client, message: Message):
                 logging.error(f"Error calculating single message ID: {e}")
                 return
 
-        temp_msg = await message.reply("Please wait...")
+        temp_msg = await message.reply("Please wait...1")
 
         # Fetch and send the requested messages
         try:
             messages = await get_messages(client, ids)
         except Exception as e:
-            await message.reply_text("Something went wrong!")
+            await message.reply_text("Something went wrong! 2")
             logging.error(f"Error fetching messages: {e}")
             return
         await temp_msg.delete()
+
+        # Set deletion delay here, e.g., 6 hours (21600 seconds) to 24 hours (86400 seconds)
+        delete_after = 6 * 3600  # or you could adjust this dynamically
 
         for msg in messages:
             caption = CUSTOM_CAPTION.format(
@@ -169,7 +171,7 @@ async def start_command(client: Client, message: Message):
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
 
             try:
-                # Send the message to the user and schedule deletion after 1 hour
+                # Send the message to the user and schedule deletion after the chosen delay
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id, 
                     caption=caption, 
@@ -178,8 +180,8 @@ async def start_command(client: Client, message: Message):
                     protect_content=PROTECT_CONTENT
                 )
 
-                # Schedule deletion of the message after 1 hour (3600 seconds)
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                # Schedule deletion of the message after the specified delay (e.g., 6 to 24 hours)
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
                 await asyncio.sleep(0.5)
 
             except FloodWait as e:
@@ -191,7 +193,7 @@ async def start_command(client: Client, message: Message):
                     reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
-                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=3600))
+                asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
 
     else:
         reply_markup = InlineKeyboardMarkup(
@@ -203,7 +205,7 @@ async def start_command(client: Client, message: Message):
         welcome_text = f"Welcome {message.from_user.first_name}! " + (
             "As a premium user, you have access to exclusive content!"
             if premium_status else
-            "Enjoy using the bot. Upgrade to premium for more features!"
+            "Enjoy using the bot. Upgrade to premium for more features! \n\n check your current plan : /myplan"
         )
         await message.reply_text(
             text=welcome_text,
@@ -211,6 +213,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+
 
     
 #=====================================================================================##
