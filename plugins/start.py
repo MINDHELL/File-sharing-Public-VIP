@@ -18,12 +18,44 @@ from bot import Bot
 from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
-#from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
+deletions = db["deletions"]  # Collection for scheduled deletions
+
+delete_after = 600
+
+# Scheduler setup
+scheduler = AsyncIOScheduler()
+
+async def schedule_message_deletion(chat_id, message_id, delete_after):
+    # Calculate deletion time and store in database
+    delete_at = datetime.now() + timedelta(seconds=delete_after)
+    deletions.insert_one({
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "delete_at": delete_at
+    })
+
+async def delete_scheduled_messages():
+    # Check and delete expired messages
+    current_time = datetime.now()
+    messages_to_delete = deletions.find({"delete_at": {"$lt": current_time}})
+
+    for deletion in messages_to_delete:
+        chat_id, message_id = deletion["chat_id"], deletion["message_id"]
+        try:
+            await client.delete_messages(chat_id, message_id)
+            deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
+        except Exception as e:
+            logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
+
+# Run the deletion check every 5 minutes
+scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
+scheduler.start()
 
 """
 # MongoDB Helper Functions (For deletions)
@@ -147,59 +179,19 @@ async def start_command(client: Client, message: Message):
 
         temp_msg = await message.reply("Please wait...")
 
-        # Fetch messages by IDs
         try:
             messages = await get_messages(client, ids)
-        except:
-            await message.reply_text("Something went wrong..!")
-            return
-        await temp_msg.delete()
+              # Example delay of 10 minutes
 
-        # Set deletion delay, e.g., 10 minutes (600 seconds)
-        delete_after = 600  
-
-        for msg in messages:
-            caption = ""
-            if CUSTOM_CAPTION and msg.document:
-                caption = CUSTOM_CAPTION.format(
-                    previouscaption=msg.caption.html if msg.caption else "",
-                    filename=msg.document.file_name
-                )
-            else:
-                caption = msg.caption.html if msg.caption else ""
-
-            reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
-
-            try:
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    protect_content=PROTECT_CONTENT
-                )
-            
-                # Check if the message was successfully sent
+            for msg in messages:
+                sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=PROTECT_CONTENT)
                 if sent_message:
-                    # Schedule deletion of the message after the specified delay (e.g., 10 minutes)
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
-                    await asyncio.sleep(0.5)
-                else:
-                    print("Message copy failed; sent_message is None.")
-            
-            except FloodWait as e:
-                await asyncio.sleep(e.x)
-                sent_message = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    protect_content=PROTECT_CONTENT
-                )
-            
-                # Again, check if the message was successfully sent
-                if sent_message:
-                    asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
-                else:
-                    print("Message copy failed on FloodWait; sent_message is None.")
+                    await schedule_message_deletion(sent_message.chat.id, sent_message.id, delete_after)
+                await asyncio.sleep(0.5)
+        except FloodWait as e:
+            await asyncio.sleep(e.x)
+        finally:
+            await temp_msg.delete()
     
 
     else:
