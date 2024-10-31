@@ -157,6 +157,6 @@ async def get_premium_users(client: Client, message: Message):
 
         # Join the list and send the message
         users_text = "\n".join(users_list)
-        await message.reply(f"<b>Premium Users:</b>\n\n{users_text}", parse_mode="HTML")
+        await message.reply(f"<b>Premium Users:</b>\n\n{users_text}", parse_mode=ParseMode.HTML)
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
