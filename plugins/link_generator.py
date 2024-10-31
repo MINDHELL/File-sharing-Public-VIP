@@ -49,7 +49,7 @@ async def batch(client: Client, message: Message):
     # Send links to user
     await message.reply(
         f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @{CHANNEL}",
-        reply_markup=reply_markup,
+        #reply_markup=reply_markup,
         disable_web_page_preview=True
     )
 
@@ -80,7 +80,7 @@ async def link_generator(client: Client, message: Message):
     normal_link = f"https://t.me/{client.username}?start={base64_string}"
     premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"    
 
-    await channel_message.reply_text(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", quote=True, reply_markup=reply_markup)
+    await channel_message.reply_text(f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official", quote=True)#, reply_markup=reply_markup)
 
 
 
