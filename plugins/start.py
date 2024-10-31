@@ -133,6 +133,36 @@ async def start_command(client: Client, message: Message):
 
         # Process the message IDs based on the argument length
         argument = decoded_string.split("-")
+
+        if len(argument) == 3:
+                try:
+                    start = int(int(argument[1]) / abs(client.db_channel.id))
+                    end = int(int(argument[2]) / abs(client.db_channel.id))
+                except:
+                    return
+                if start <= end:
+                    ids = range(start, end+1)
+                else:
+                    ids = []
+                    i = start
+                    while True:
+                        ids.append(i)
+                        i -= 1
+                        if i < end:
+                            break
+            elif len(argument) == 2:
+                try:
+                    ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+                except:
+                    return
+            temp_msg = await message.reply("Please wait...")
+            try:
+                messages = await get_messages(client, ids)
+            except:
+                await message.reply_text("Something went wrong..!")
+                return
+            await temp_msg.delete()
+        """
         if len(argument) == 3:
             try:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
@@ -158,10 +188,11 @@ async def start_command(client: Client, message: Message):
             logging.error(f"Error fetching messages: {e}")
             return
         await temp_msg.delete()
-
+        """
         # Set deletion delay here, e.g., 6 hours (21600 seconds) to 24 hours (86400 seconds)
         delete_after = 600  # or you could adjust this dynamically
-
+        
+        """ 
         for msg in messages:
             caption = CUSTOM_CAPTION.format(
                 previouscaption="" if not msg.caption else msg.caption.html,
@@ -169,14 +200,24 @@ async def start_command(client: Client, message: Message):
             ) if CUSTOM_CAPTION and msg.document else msg.caption or ""
 
             reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+        """
+        for msg in messages:
+                if bool(CUSTOM_CAPTION) & bool(msg.document):
+                    caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, filename=msg.document.file_name)
+                else:
+                    caption = "" if not msg.caption else msg.caption.html
 
+                if DISABLE_CHANNEL_BUTTON:
+                    reply_markup = msg.reply_markup
+                else:
+                    reply_markup = None
             try:
                 # Send the message to the user and schedule deletion after the chosen delay
                 sent_message = await msg.copy(
                     chat_id=message.from_user.id, 
                     caption=caption, 
                     parse_mode=ParseMode.HTML, 
-                    reply_markup=reply_markup, 
+                    #reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
 
@@ -190,7 +231,7 @@ async def start_command(client: Client, message: Message):
                     chat_id=message.from_user.id, 
                     caption=caption, 
                     parse_mode=ParseMode.HTML, 
-                    reply_markup=reply_markup, 
+                    #reply_markup=reply_markup, 
                     protect_content=PROTECT_CONTENT
                 )
                 asyncio.create_task(auto_delete_message(client, sent_message.chat.id, sent_message.id, delay=delete_after))
@@ -209,7 +250,7 @@ async def start_command(client: Client, message: Message):
         )
         await message.reply_text(
             text=welcome_text,
-            reply_markup=reply_markup,
+            #reply_markup=reply_markup,
             disable_web_page_preview=True,
             quote=True
         )
