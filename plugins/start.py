@@ -160,7 +160,7 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         # Set deletion delay here, e.g., 6 hours (21600 seconds) to 24 hours (86400 seconds)
-        delete_after = 6 * 3600  # or you could adjust this dynamically
+        delete_after = 600  # or you could adjust this dynamically
 
         for msg in messages:
             caption = CUSTOM_CAPTION.format(
