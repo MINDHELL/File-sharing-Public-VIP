@@ -137,23 +137,27 @@ async def upi_info(bot: Bot, message: Message):
     )
 
 
+# Command to get all premium users
 @Bot.on_message(filters.private & filters.command('getpremiumusers') & filters.user(ADMINS))
 async def get_premium_users(bot: Bot, message: Message):
     try:
-        premium_users = pusers.find({"is_premium": True})
+        # Retrieve premium users with active status
+        premium_users = pusers.find({"is_premium": True, "expiry_time": {"$gt": time.time()}})
+        
+        # Check if there are any premium users
         if premium_users.count() == 0:
-            return await message.reply("No premium users found.")
-
+            return await message.reply("No active premium users found.")
+        
         users_list = []
         for user in premium_users:
             user_id = user.get('user_id')
             expiry_time = user.get('expiry_time')
             time_left = expiry_time - time.time()
-            days_left = int(time_left / 86400)
+            days_left = max(int(time_left / 86400), 0)  # Ensure non-negative days left
             users_list.append(f"User ID: {user_id} - Premium Expires in {days_left} days")
 
+        # Join the list and send the message
         users_text = "\n".join(users_list)
         await message.reply(f"<b>Premium Users:</b>\n\n{users_text}", parse_mode=ParseMode.HTML)
     except Exception as e:
         await message.reply(f"Error: {str(e)}")
-
