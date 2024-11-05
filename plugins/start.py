@@ -32,6 +32,7 @@ delete_after = 600
 scheduler = AsyncIOScheduler()
 
 
+# Function to schedule a message for deletion after a specific delay
 async def schedule_message_deletion(chat_id, message_id, delete_after):
     # Calculate deletion time and store in database
     delete_at = datetime.now() + timedelta(seconds=delete_after)
@@ -40,23 +41,26 @@ async def schedule_message_deletion(chat_id, message_id, delete_after):
         "message_id": message_id,
         "delete_at": delete_at
     })
+    logging.info(f"Scheduled deletion for message {message_id} in chat {chat_id} at {delete_at}")
 
-
+# Function to check for expired messages and delete them
 async def delete_scheduled_messages():
-    # Check and delete expired messages
-    current_time = datetime.now()
-    messages_to_delete = deletions.find({"delete_at": {"$lt": current_time}})
+    # Periodically check for messages to delete
+    while True:
+        current_time = datetime.now()
+        messages_to_delete = deletions.find({"delete_at": {"$lt": current_time}})
 
-    for deletion in messages_to_delete:
-        chat_id, message_id = deletion["chat_id"], deletion["message_id"]
-        try:
-            await client.delete_messages(chat_id, message_id)
-            deletions.delete_one({"_id": deletion["_id"]
-                                  })  # Remove entry after deletion
-        except Exception as e:
-            logging.error(
-                f"Error deleting message {message_id} in chat {chat_id}: {e}")
-
+        for deletion in messages_to_delete:
+            chat_id, message_id = deletion["chat_id"], deletion["message_id"]
+            try:
+                await client.delete_messages(chat_id, message_id)
+                deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
+                logging.info(f"Deleted message {message_id} in chat {chat_id}")
+            except Exception as e:
+                logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
+        
+        # Wait for a specified interval before checking again
+        await asyncio.sleep(60
 
 # Run the deletion check every 5 minutes
 scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
@@ -138,12 +142,6 @@ async def auto_delete_message(client,
     except Exception as e:
         logging.error(f"Failed to delete message: {e}")
 
-
-import logging
-
-# Set up logging to output to console
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Bot command to handle /start command in private messages
 @Client.on_message(filters.command('start') & filters.private)
