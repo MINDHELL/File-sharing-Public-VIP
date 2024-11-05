@@ -83,22 +83,22 @@ async def start_command(client: Client, message: Message):
     if not await present_user(user_id):
         try:
             await add_user(user_id)
-            logger.info(f"Added new user with ID: {user_id}")
+            #logger.info(f"Added new user with ID: {user_id}")
         except Exception as e:
-            logger.error(f"Error adding user {user_id}: {e}")
+            #logger.error(f"Error adding user {user_id}: {e}")
 
     premium_status = await is_premium_user(user_id)
-    logger.info(f"Premium status for user {user_id}: {premium_status}")
+    #logger.info(f"Premium status for user {user_id}: {premium_status}")
 
     if len(message.text) > 7:
         base64_string = message.text.split(" ", 1)[1]
         is_premium_link = False
-        logger.info(f"Base64 string received: {base64_string}")
+        #logger.info(f"Base64 string received: {base64_string}")
 
         try:
             decoded_string = await decode_premium(base64_string)
             is_premium_link = True
-            logger.info("Decoded as premium link.")
+            #logger.info("Decoded as premium link.")
         except Exception as e:
             try:
                 decoded_string = await decode(base64_string)
@@ -114,13 +114,13 @@ async def start_command(client: Client, message: Message):
                 sent_message = await message.reply_text(
                     "This VIP content is only accessible to premium (VIP) users! \n\nUpgrade to VIP to access. \nClick here /myplan"
                 )
-                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
+               #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
                 return 
 
         if is_premium_link and not premium_status:
             logger.warning("Access denied: User tried to use a premium link without premium status.")
             sent_message = await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
-            asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
+           # asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
             return
 
         argument = decoded_string.split("-")
@@ -144,7 +144,7 @@ async def start_command(client: Client, message: Message):
                 return
 
         temp_msg = await message.reply("Please wait...")
-        asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id))  # Auto-delete temp message
+       # asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id))  # Auto-delete temp message
 
         logger.info("Fetching messages...")
         try:
@@ -152,7 +152,7 @@ async def start_command(client: Client, message: Message):
 
             for msg in messages:
                 sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=PROTECT_CONTENT)
-                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete each sent message
+                #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete each sent message
                 await asyncio.sleep(0.5)
         except FloodWait as e:
             logger.warning(f"Rate limit hit. Waiting for {e.x} seconds.")
@@ -177,7 +177,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete welcome message
+      #  asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete welcome message
         logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
