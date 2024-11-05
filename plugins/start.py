@@ -31,6 +31,7 @@ delete_after = 600
 # Scheduler setup
 scheduler = AsyncIOScheduler()
 
+
 async def schedule_message_deletion(chat_id, message_id, delete_after):
     # Calculate deletion time and store in database
     delete_at = datetime.now() + timedelta(seconds=delete_after)
@@ -39,6 +40,7 @@ async def schedule_message_deletion(chat_id, message_id, delete_after):
         "message_id": message_id,
         "delete_at": delete_at
     })
+
 
 async def delete_scheduled_messages():
     # Check and delete expired messages
@@ -49,14 +51,16 @@ async def delete_scheduled_messages():
         chat_id, message_id = deletion["chat_id"], deletion["message_id"]
         try:
             await client.delete_messages(chat_id, message_id)
-            deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
+            deletions.delete_one({"_id": deletion["_id"]
+                                  })  # Remove entry after deletion
         except Exception as e:
-            logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
+            logging.error(
+                f"Error deleting message {message_id} in chat {chat_id}: {e}")
+
 
 # Run the deletion check every 5 minutes
 scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
 scheduler.start()
-
 """
 # MongoDB Helper Functions (For deletions)
 async def schedule_message_deletion(chat_id, message_id, delete_at):
@@ -88,20 +92,27 @@ scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
 
 """
 
+
 # MongoDB Helper Functions
 async def add_premium_user(user_id, duration_in_days):
-    expiry_time = time.time() + (duration_in_days * 86400)  # Calculate expiry time in seconds
+    expiry_time = time.time() + (duration_in_days * 86400
+                                 )  # Calculate expiry time in seconds
     pusers.update_one(
         {"user_id": user_id},
-        {"$set": {"is_premium": True, "expiry_time": expiry_time}},
-        upsert=True
-    )
+        {"$set": {
+            "is_premium": True,
+            "expiry_time": expiry_time
+        }},
+        upsert=True)
+
 
 async def remove_premium_user(user_id):
-    pusers.update_one(
-        {"user_id": user_id},
-        {"$set": {"is_premium": False, "expiry_time": None}}
-    )
+    pusers.update_one({"user_id": user_id},
+                      {"$set": {
+                          "is_premium": False,
+                          "expiry_time": None
+                      }})
+
 
 async def get_user_subscription(user_id):
     user = pusers.find_one({"user_id": user_id})
@@ -109,13 +120,18 @@ async def get_user_subscription(user_id):
         return user.get("is_premium", False), user.get("expiry_time", None)
     return False, None
 
+
 async def is_premium_user(user_id):
     is_premium, expiry_time = await get_user_subscription(user_id)
     if is_premium and expiry_time > time.time():
         return True
     return False
 
-async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set default delay to 1 hour
+
+async def auto_delete_message(client,
+                              chat_id,
+                              message_id,
+                              delay=3600):  # Set default delay to 1 hour
     await asyncio.sleep(delay)
     try:
         await client.delete_messages(chat_id, message_id)
@@ -123,77 +139,105 @@ async def auto_delete_message(client, chat_id, message_id, delay=3600):  # Set d
         logging.error(f"Failed to delete message: {e}")
 
 
+import logging
+
+# Set up logging to output to console
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Bot command to handle /start command in private messages
 @Client.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+    logger.info(f"Received /start command from user ID: {user_id}")
 
     # Check if the user exists in the database
     if not await present_user(user_id):
         try:
             await add_user(user_id)
+            logger.info(f"Added new user with ID: {user_id}")
         except Exception as e:
-            print(f"Error adding user {user_id}: {e}")
+            logger.error(f"Error adding user {user_id}: {e}")
 
     # Check if the user is a premium user
     premium_status = await is_premium_user(user_id)
+    logger.info(f"Premium status for user {user_id}: {premium_status}")
 
     # Handle base64 encoded string if provided
     if len(message.text) > 7:
         base64_string = message.text.split(" ", 1)[1]
         is_premium_link = False
+        logger.info(f"Base64 string received: {base64_string}")
 
         # Try to decode as a premium link
         try:
             decoded_string = await decode_premium(base64_string)
             is_premium_link = True
-        except:
+            logger.info("Decoded as premium link.")
+        except Exception as e:
             # Fallback to decode as a normal link if not premium
             try:
                 decoded_string = await decode(base64_string)
+                logger.info("Decoded as normal link.")
             except Exception as e:
-                print(f"Decoding error: {e}")
+                logger.error(f"Decoding error: {e}")
                 await message.reply_text("Invalid link provided. \n\nGet help /upi")
                 return
 
+        if "vip-" in decoded_string:
+            logger.info(f"'vip-' detected in decoded string: {decoded_string}")
+            if not premium_status:
+                logger.warning("Access denied: User tried to access a VIP link without VIP status.")
+                await message.reply_text(
+                    "This VIP content is only accessible to premium (VIP) users! \n\nUpgrade to VIP to access. \nClick here /myplan"
+                )
+                return 
+
         # Check premium status if it's a premium link
         if is_premium_link and not premium_status:
+            logger.warning("Access denied: User tried to use a premium link without premium status.")
             await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
             return
 
         # Process message IDs based on decoded string
         argument = decoded_string.split("-")
+        ids = []
 
         if len(argument) == 3:
             try:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
-                ids = range(start, end + 1) if start <= end else range(end, start + 1)
-            except:
+                ids = list(range(start, end + 1)) if start <= end else list(range(end, start + 1))
+                logger.info(f"Decoded message ID range: {ids}")
+            except Exception as e:
+                logger.error(f"Error decoding message ID range: {e}")
                 return
         elif len(argument) == 2:
             try:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except:
+                logger.info(f"Decoded single message ID: {ids[0]}")
+            except Exception as e:
+                logger.error(f"Error decoding single message ID: {e}")
                 return
 
         temp_msg = await message.reply("Please wait...")
+        logger.info("Fetching messages...")
 
         try:
             messages = await get_messages(client, ids)
-              # Example delay of 10 minutes
 
             for msg in messages:
                 sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=PROTECT_CONTENT)
                 if sent_message:
                     await schedule_message_deletion(sent_message.chat.id, sent_message.id, delete_after)
+                    logger.info(f"Message sent and scheduled for deletion: {sent_message.id}")
                 await asyncio.sleep(0.5)
         except FloodWait as e:
+            logger.warning(f"Rate limit hit. Waiting for {e.x} seconds.")
             await asyncio.sleep(e.x)
         finally:
             await temp_msg.delete()
-    
-
+            logger.info("Temp message deleted.")
     else:
         reply_markup = InlineKeyboardMarkup(
             [
@@ -211,10 +255,10 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
+        logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
 
-    
 #=====================================================================================##
 
 WAIT_MSG = """"<b>Processing ...</b>"""
@@ -223,8 +267,7 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
 
 #=====================================================================================##
 
-    
-    
+
 @Bot.on_message(filters.command('start') & filters.private)
 async def not_joined(client: Client, message: Message):
     buttons = [
@@ -238,39 +281,37 @@ async def not_joined(client: Client, message: Message):
         ]
     ]
     try:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text = 'Try Again',
-                    url = f"https://t.me/{client.username}?start={message.command[1]}"
-                )
-            ]
-        )
+        buttons.append([
+            InlineKeyboardButton(
+                text='Try Again',
+                url=f"https://t.me/{client.username}?start={message.command[1]}"
+            )
+        ])
     except IndexError:
         pass
 
-    await message.reply(
-        text = FORCE_MSG.format(
-                first = message.from_user.first_name,
-                last = message.from_user.last_name,
-                username = None if not message.from_user.username else '@' + message.from_user.username,
-                mention = message.from_user.mention,
-                id = message.from_user.id
-            ),
-        reply_markup = InlineKeyboardMarkup(buttons),
-        quote = True,
-        disable_web_page_preview = True
-    )
+    await message.reply(text=FORCE_MSG.format(
+        first=message.from_user.first_name,
+        last=message.from_user.last_name,
+        username=None if not message.from_user.username else '@' +
+        message.from_user.username,
+        mention=message.from_user.mention,
+        id=message.from_user.id),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                        quote=True,
+                        disable_web_page_preview=True)
 
 
-
-@Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
+@Bot.on_message(
+    filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
     users = await full_userbase()
     await msg.edit(f"{len(users)} users are using this bot")
 
-@Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
+
+@Bot.on_message(filters.private & filters.command('broadcast')
+                & filters.user(ADMINS))
 async def send_text(client: Bot, message: Message):
     if message.reply_to_message:
         query = await full_userbase()
@@ -280,8 +321,9 @@ async def send_text(client: Bot, message: Message):
         blocked = 0
         deleted = 0
         unsuccessful = 0
-        
-        pls_wait = await message.reply("<i>Broadcasting Message.. This will Take Some Time</i>")
+
+        pls_wait = await message.reply(
+            "<i>Broadcasting Message.. This will Take Some Time</i>")
         for chat_id in query:
             try:
                 await broadcast_msg.copy(chat_id)
@@ -300,7 +342,7 @@ async def send_text(client: Bot, message: Message):
                 unsuccessful += 1
                 pass
             total += 1
-        
+
         status = f"""<b><u>Broadcast Completed</u>
 
 Total Users: <code>{total}</code>
@@ -308,13 +350,15 @@ Successful: <code>{successful}</code>
 Blocked Users: <code>{blocked}</code>
 Deleted Accounts: <code>{deleted}</code>
 Unsuccessful: <code>{unsuccessful}</code></b>"""
-        
+
         return await pls_wait.edit(status)
 
     else:
         msg = await message.reply(REPLY_ERROR)
         await asyncio.sleep(8)
         await msg.delete()
+
+
 """
 # Add /addpr command for admins to add premium subscription
 @Bot.on_message(filters.command('addpr') & filters.private)
