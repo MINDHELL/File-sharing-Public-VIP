@@ -19,7 +19,7 @@ from config import *
 from helper_func import *
 from database.database import add_user, del_user, full_userbase, present_user
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+#from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -28,73 +28,8 @@ deletions = db["deletions"]  # Collection for scheduled deletions
 
 delete_after = 600
 
-# Scheduler setup
-scheduler = AsyncIOScheduler()
-
-
-# Function to schedule a message for deletion after a specific delay
-async def schedule_message_deletion(chat_id, message_id, delete_after):
-    # Calculate deletion time and store in database
-    delete_at = datetime.now() + timedelta(seconds=delete_after)
-    deletions.insert_one({
-        "chat_id": chat_id,
-        "message_id": message_id,
-        "delete_at": delete_at
-    })
-    logging.info(f"Scheduled deletion for message {message_id} in chat {chat_id} at {delete_at}")
-
-# Function to check for expired messages and delete them
-async def delete_scheduled_messages():
-    # Periodically check for messages to delete
-    while True:
-        current_time = datetime.now()
-        messages_to_delete = deletions.find({"delete_at": {"$lt": current_time}})
-
-        for deletion in messages_to_delete:
-            chat_id, message_id = deletion["chat_id"], deletion["message_id"]
-            try:
-                await client.delete_messages(chat_id, message_id)
-                deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
-                logging.info(f"Deleted message {message_id} in chat {chat_id}")
-            except Exception as e:
-                logging.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
-        
-        # Wait for a specified interval before checking again
-        await asyncio.sleep(60
-
-# Run the deletion check every 5 minutes
-scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
-scheduler.start()
-"""
-# MongoDB Helper Functions (For deletions)
-async def schedule_message_deletion(chat_id, message_id, delete_at):
-    #Schedule the message to be deleted at a specified time.
-    db.deletions.insert_one({
-        "chat_id": chat_id,
-        "message_id": message_id,
-        "delete_at": delete_at
-    })
-
-async def delete_scheduled_messages():
-    #Your function to delete scheduled messages
-    current_time = datetime.now()
-    deletions = db.deletions.find({"delete_at": {"$lt": current_time}}).to_list(length=None)
-    messages_to_delete = []
-    
-    for deletion in deletions:
-        messages_to_delete.append((deletion["chat_id"], deletion["message_id"]))
-        await db.deletions.delete_one({"_id": deletion["_id"]})  # Remove entry after deletion
-
-    for chat_id, message_id in messages_to_delete:
-        try:
-            await client.delete_messages(chat_id, message_id)
-        except Exception as e:
-            print(f"Error deleting message {message_id} in {chat_id}: {e}")
-
-# Schedule the deletion task every 5 minutes
-scheduler.add_job(delete_scheduled_messages, 'interval', minutes=5)
-
-"""
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # MongoDB Helper Functions
@@ -132,24 +67,19 @@ async def is_premium_user(user_id):
     return False
 
 
-async def auto_delete_message(client,
-                              chat_id,
-                              message_id,
-                              delay=3600):  # Set default delay to 1 hour
+async def schedule_auto_delete(client: Client, chat_id: int, message_id: int, delay: int = 60):
     await asyncio.sleep(delay)
     try:
         await client.delete_messages(chat_id, message_id)
+        logger.info(f"Deleted message {message_id} in chat {chat_id} after {delay} seconds.")
     except Exception as e:
-        logging.error(f"Failed to delete message: {e}")
+        logger.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
 
 
-# Bot command to handle /start command in private messages
-@Client.on_message(filters.command('start') & filters.private)
+@Client.on_message(filters.command("start") & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
-    logger.info(f"Received /start command from user ID: {user_id}")
 
-    # Check if the user exists in the database
     if not await present_user(user_id):
         try:
             await add_user(user_id)
@@ -157,23 +87,19 @@ async def start_command(client: Client, message: Message):
         except Exception as e:
             logger.error(f"Error adding user {user_id}: {e}")
 
-    # Check if the user is a premium user
     premium_status = await is_premium_user(user_id)
     logger.info(f"Premium status for user {user_id}: {premium_status}")
 
-    # Handle base64 encoded string if provided
     if len(message.text) > 7:
         base64_string = message.text.split(" ", 1)[1]
         is_premium_link = False
         logger.info(f"Base64 string received: {base64_string}")
 
-        # Try to decode as a premium link
         try:
             decoded_string = await decode_premium(base64_string)
             is_premium_link = True
             logger.info("Decoded as premium link.")
         except Exception as e:
-            # Fallback to decode as a normal link if not premium
             try:
                 decoded_string = await decode(base64_string)
                 logger.info("Decoded as normal link.")
@@ -183,21 +109,20 @@ async def start_command(client: Client, message: Message):
                 return
 
         if "vip-" in decoded_string:
-            logger.info(f"'vip-' detected in decoded string: {decoded_string}")
             if not premium_status:
                 logger.warning("Access denied: User tried to access a VIP link without VIP status.")
-                await message.reply_text(
+                sent_message = await message.reply_text(
                     "This VIP content is only accessible to premium (VIP) users! \n\nUpgrade to VIP to access. \nClick here /myplan"
                 )
+                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
                 return 
 
-        # Check premium status if it's a premium link
         if is_premium_link and not premium_status:
             logger.warning("Access denied: User tried to use a premium link without premium status.")
-            await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
+            sent_message = await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
+            asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
             return
 
-        # Process message IDs based on decoded string
         argument = decoded_string.split("-")
         ids = []
 
@@ -219,16 +144,15 @@ async def start_command(client: Client, message: Message):
                 return
 
         temp_msg = await message.reply("Please wait...")
-        logger.info("Fetching messages...")
+        asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id))  # Auto-delete temp message
 
+        logger.info("Fetching messages...")
         try:
             messages = await get_messages(client, ids)
 
             for msg in messages:
                 sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=PROTECT_CONTENT)
-                if sent_message:
-                    await schedule_message_deletion(sent_message.chat.id, sent_message.id, delete_after)
-                    logger.info(f"Message sent and scheduled for deletion: {sent_message.id}")
+                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete each sent message
                 await asyncio.sleep(0.5)
         except FloodWait as e:
             logger.warning(f"Rate limit hit. Waiting for {e.x} seconds.")
@@ -247,12 +171,13 @@ async def start_command(client: Client, message: Message):
             f"Welcome {message.from_user.first_name}! "
             + ("As a premium user, you have access to exclusive content!" if premium_status else "Enjoy using the bot. Upgrade to premium for more features! \n\nCheck Your current Plan : /myplan")
         )
-        await message.reply_text(
+        sent_message = await message.reply_text(
             text=welcome_text,
             reply_markup=reply_markup,
             disable_web_page_preview=True,
             quote=True
         )
+        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete welcome message
         logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
