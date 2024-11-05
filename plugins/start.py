@@ -83,9 +83,9 @@ async def start_command(client: Client, message: Message):
     if not await present_user(user_id):
         try:
             await add_user(user_id)
-            #logger.info(f"Added new user with ID: {user_id}")
+            logger.info(f"Added new user with ID: {user_id}")
         except Exception as e:
-            #logger.error(f"Error adding user {user_id}: {e}")
+            logger.error(f"Error adding user {user_id}: {e}")
 
     premium_status = await is_premium_user(user_id)
     #logger.info(f"Premium status for user {user_id}: {premium_status}")
