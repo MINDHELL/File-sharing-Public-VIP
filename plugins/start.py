@@ -23,14 +23,14 @@ from database.database import add_user, del_user, full_userbase, present_user
 
 from asyncio import sleep
 
-logger = logging.getLogger(__name__)
 
+delete_after = 600
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
 deletions = db["deletions"]  # Collection for scheduled deletions
 
-delete_after = 600
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -111,12 +111,12 @@ async def start_command(client: Client, message):
                 sent_message = await message.reply_text(
                     "This VIP content is only accessible to premium (VIP) users! \n\nUpgrade to VIP to access. \nClick here /myplan"
                 )
-                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
+                #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
                 return 
 
         if is_premium_link and not premium_status:
             sent_message = await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
-            asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
+            #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
             return
 
         argument = decoded_string.split("-")
@@ -136,7 +136,9 @@ async def start_command(client: Client, message):
             messages = await get_messages(client, ids)
 
             for msg in messages:
-                sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=True)
+                caption = CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name) if CUSTOM_CAPTION and msg.document else (msg.caption.html if msg.caption else "")
+                reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
+                sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=True, caption=caption, reply_markup=reply_markup)
                 asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=3600))
                 await sleep(0.5)
 
