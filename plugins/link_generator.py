@@ -66,8 +66,7 @@ async def batch(client: Client, message: Message):
         disable_web_page_preview=True)
 
 
-@Bot.on_message(filters.private & filters.user(ADMINS)
-                & filters.command('genlink'))
+@Bot.on_message(filters.private & filters.user(ADMINS) & filters.command('genlink'))
 async def link_generator(client: Client, message: Message):
     while True:
         try:
