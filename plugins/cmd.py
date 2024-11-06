@@ -8,6 +8,29 @@ from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineK
 from pyrogram.enums import ParseMode
 import time
 
+# /help command to show available commands
+@Client.on_message(filters.command('help') & filters.private)
+async def help_command(client: Client, message: Message):
+    help_text = """
+📖 <b>Available Commands:</b>
+
+/start - Start the bot and see welcome message.
+/help - Show this help message.
+/myplan - Check your premium status
+/batch - Create link for more than one posts.
+/genlink - Create link for one post.
+/stats - Check your bot uptime.
+/users - View bot statistics (Admins only).
+/broadcast - Broadcast any messages to bot users (Admins only).
+/addpr id days - Add credits to your account (Admins only).
+/removepr id - remove premium user
+/getpremiumusers - all premium user d and remaining time
+/plans - Show available premium plans.
+/upi - Show UPI payment options.
+"""
+    await message.reply(help_text, parse_mode=ParseMode.HTML)
+
+
 # Command to add a premium subscription for a user (admin only)
 @Bot.on_message(filters.private & filters.command('addpr') & filters.user(ADMINS))
 async def add_premium(bot: Bot, message: Message):
