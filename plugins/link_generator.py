@@ -7,8 +7,7 @@ from config import ADMINS, CHANNEL
 from helper_func import *
 
 
-@Bot.on_message(filters.private & filters.user(ADMINS)
-                & filters.command('batch'))
+@Bot.on_message(filters.private & filters.user(ADMINS) & filters.command('batch'))
 async def batch(client: Client, message: Message):
     while True:
         try:
