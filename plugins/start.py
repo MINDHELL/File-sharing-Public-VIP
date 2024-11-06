@@ -23,7 +23,7 @@ from database.database import add_user, del_user, full_userbase, present_user
 
 from asyncio import sleep
 
-
+autodelete = 60
 delete_after = 600
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
@@ -130,7 +130,7 @@ async def start_command(client: Client, message):
             ids = [int(int(argument[1]) / abs(client.db_channel.id))]
 
         temp_msg = await message.reply("Please wait...")
-        asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id, delay=600))
+        #asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id, delay=600))
 
         try:
             messages = await get_messages(client, ids)
@@ -139,7 +139,7 @@ async def start_command(client: Client, message):
                 caption = CUSTOM_CAPTION.format(previouscaption=msg.caption.html if msg.caption else "", filename=msg.document.file_name) if CUSTOM_CAPTION and msg.document else (msg.caption.html if msg.caption else "")
                 reply_markup = None if DISABLE_CHANNEL_BUTTON else msg.reply_markup
                 sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=True, caption=caption, reply_markup=reply_markup)
-                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=3600))
+                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=autodelete))
                 await sleep(0.5)
 
             # Send "Get File Again" button after deletion
@@ -176,7 +176,7 @@ async def start_command(client: Client, message):
             disable_web_page_preview=True,
             quote=True
         )
-        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=3600))
+        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=autodelete))
         logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
