@@ -9,8 +9,8 @@ from pyrogram.enums import ParseMode
 import time
 
 # /help command to show available commands
-@Client.on_message(filters.command('help') & filters.private)
-async def help_command(client: Client, message: Message):
+@Bot.on_message(filters.command('help') & filters.private)
+async def help_command(bot: Bot, message: Message):
     help_text = """
 📖 <b>Available Commands:</b>
 
