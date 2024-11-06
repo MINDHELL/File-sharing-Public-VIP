@@ -21,6 +21,10 @@ from database.database import add_user, del_user, full_userbase, present_user
 
 #from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from asyncio import sleep
+
+logger = logging.getLogger(__name__)
+
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 pusers = db["pusers"]  # Collection for users
@@ -67,17 +71,16 @@ async def is_premium_user(user_id):
     return False
 
 
-async def schedule_auto_delete(client: Client, chat_id: int, message_id: int, delay: int = 60):
-    await asyncio.sleep(delay)
-    try:
-        await client.delete_messages(chat_id, message_id)
-        logger.info(f"Deleted message {message_id} in chat {chat_id} after {delay} seconds.")
-    except Exception as e:
-        logger.error(f"Error deleting message {message_id} in chat {chat_id}: {e}")
 
 
-@Client.on_message(filters.command("start") & filters.private)
-async def start_command(client: Client, message: Message):
+# Function to schedule deletion of a message
+async def schedule_auto_delete(client, chat_id, message_id, delay):
+    await sleep(delay)  # Delay in seconds
+    await client.delete_messages(chat_id=chat_id, message_ids=message_id)
+    logger.info(f"Deleted message with ID {message_id} from chat {chat_id}")
+
+@Client.on_message(filters.command("start") & filters.private & subscribed)
+async def start_command(client: Client, message):
     user_id = message.from_user.id
 
     if not await present_user(user_id):
@@ -88,78 +91,72 @@ async def start_command(client: Client, message: Message):
             logger.error(f"Error adding user {user_id}: {e}")
 
     premium_status = await is_premium_user(user_id)
-    #logger.info(f"Premium status for user {user_id}: {premium_status}")
 
     if len(message.text) > 7:
         base64_string = message.text.split(" ", 1)[1]
         is_premium_link = False
-        #logger.info(f"Base64 string received: {base64_string}")
 
         try:
             decoded_string = await decode_premium(base64_string)
             is_premium_link = True
-            #logger.info("Decoded as premium link.")
         except Exception as e:
             try:
                 decoded_string = await decode(base64_string)
-                logger.info("Decoded as normal link.")
             except Exception as e:
-                logger.error(f"Decoding error: {e}")
                 await message.reply_text("Invalid link provided. \n\nGet help /upi")
                 return
 
         if "vip-" in decoded_string:
             if not premium_status:
-                logger.warning("Access denied: User tried to access a VIP link without VIP status.")
                 sent_message = await message.reply_text(
                     "This VIP content is only accessible to premium (VIP) users! \n\nUpgrade to VIP to access. \nClick here /myplan"
                 )
-               #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
+                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
                 return 
 
         if is_premium_link and not premium_status:
-            logger.warning("Access denied: User tried to use a premium link without premium status.")
             sent_message = await message.reply_text("This link is for premium users only! \n\nUpgrade to access. \nClick here /myplan")
-           # asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))
+            asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=600))
             return
 
         argument = decoded_string.split("-")
         ids = []
 
         if len(argument) == 3:
-            try:
-                start = int(int(argument[1]) / abs(client.db_channel.id))
-                end = int(int(argument[2]) / abs(client.db_channel.id))
-                ids = list(range(start, end + 1)) if start <= end else list(range(end, start + 1))
-                logger.info(f"Decoded message ID range: {ids}")
-            except Exception as e:
-                logger.error(f"Error decoding message ID range: {e}")
-                return
+            start = int(int(argument[1]) / abs(client.db_channel.id))
+            end = int(int(argument[2]) / abs(client.db_channel.id))
+            ids = list(range(start, end + 1)) if start <= end else list(range(end, start + 1))
         elif len(argument) == 2:
-            try:
-                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-                logger.info(f"Decoded single message ID: {ids[0]}")
-            except Exception as e:
-                logger.error(f"Error decoding single message ID: {e}")
-                return
+            ids = [int(int(argument[1]) / abs(client.db_channel.id))]
 
         temp_msg = await message.reply("Please wait...")
-       # asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id))  # Auto-delete temp message
+        asyncio.create_task(schedule_auto_delete(client, temp_msg.chat.id, temp_msg.id, delay=600))
 
-        logger.info("Fetching messages...")
         try:
             messages = await get_messages(client, ids)
 
             for msg in messages:
-                sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=PROTECT_CONTENT)
-                #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete each sent message
-                await asyncio.sleep(0.5)
-        except FloodWait as e:
-            logger.warning(f"Rate limit hit. Waiting for {e.x} seconds.")
-            await asyncio.sleep(e.x)
+                sent_message = await msg.copy(chat_id=message.from_user.id, protect_content=True)
+                asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=3600))
+                await sleep(0.5)
+
+            # Send "Get File Again" button after deletion
+            get_file_markup = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="Try Again",
+                            url=f"https://t.me/{client.username}?start={message.text.split()[1]}"
+                        )
+                    ]
+                ]
+            )
+            await message.reply("File was deleted after the set time limit. Use the button below to get the file again.", reply_markup=get_file_markup)
+
+        except Exception as e:
+            logger.error(f"Error fetching messages: {e}")
         finally:
             await temp_msg.delete()
-            logger.info("Temp message deleted.")
     else:
         reply_markup = InlineKeyboardMarkup(
             [
@@ -177,7 +174,7 @@ async def start_command(client: Client, message: Message):
             disable_web_page_preview=True,
             quote=True
         )
-      #  asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id))  # Auto-delete welcome message
+        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=3600))
         logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
