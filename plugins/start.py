@@ -176,7 +176,7 @@ async def start_command(client: Client, message):
             disable_web_page_preview=True,
             quote=True
         )
-        asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=autodelete))
+        #asyncio.create_task(schedule_auto_delete(client, sent_message.chat.id, sent_message.id, delay=autodelete))
         logger.info(f"Sent welcome message to user {user_id} with premium status: {premium_status}")
 
 
