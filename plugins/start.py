@@ -27,7 +27,7 @@ autodelete = 60
 delete_after = 600
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
-pusers = db["pusers"]  # Collection for users
+phdlust = db["phdlust"]  # Collection for users
 deletions = db["deletions"]  # Collection for scheduled deletions
 
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 async def add_premium_user(user_id, duration_in_days):
     expiry_time = time.time() + (duration_in_days * 86400
                                  )  # Calculate expiry time in seconds
-    pusers.update_one(
+    phdlust.update_one(
         {"user_id": user_id},
         {"$set": {
             "is_premium": True,
@@ -50,7 +50,7 @@ async def add_premium_user(user_id, duration_in_days):
 
 
 async def remove_premium_user(user_id):
-    pusers.update_one({"user_id": user_id},
+    phdlust.update_one({"user_id": user_id},
                       {"$set": {
                           "is_premium": False,
                           "expiry_time": None
@@ -58,7 +58,7 @@ async def remove_premium_user(user_id):
 
 
 async def get_user_subscription(user_id):
-    user = pusers.find_one({"user_id": user_id})
+    user = phdlust.find_one({"user_id": user_id})
     if user:
         return user.get("is_premium", False), user.get("expiry_time", None)
     return False, None
@@ -71,9 +71,6 @@ async def is_premium_user(user_id):
     return False
 
 
-
-
-# Function to schedule deletion of a message
 async def schedule_auto_delete(client, chat_id, message_id, delay):
     await sleep(delay)  # Delay in seconds
     await client.delete_messages(chat_id=chat_id, message_ids=message_id)
