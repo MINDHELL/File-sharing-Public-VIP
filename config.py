@@ -6,7 +6,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "8011382713:AAGxzZX1vUPYU515mKPJwdo64")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7305874977:AAGTBRowGUlCkk39Db6Faico8Wgufp0E5Rk")
 APP_ID = int(os.environ.get("APP_ID", "9218751"))
 API_HASH = os.environ.get("API_HASH", "82f5398437eb5474b676e83ed67e69cc")
  
@@ -29,7 +29,7 @@ PAYMENT_TEXT = os.getenv('PAYMENT_TEXT', '<b>- ᴀᴠᴀɪʟᴀʙʟᴇ ᴘʟᴀ�
                                       'ᴄʟɪᴄᴋ ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜʀ ᴀᴄᴛɪᴠᴇ ᴘʟᴀɴ /myplan\n\n'
                                       '💢 ᴍᴜsᴛ sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ ᴀғᴛᴇʀ ᴘᴀʏᴍᴇɴᴛ\n\n'
                                       '‼️ ᴀғᴛᴇʀ sᴇɴᴅɪɴɢ ᴀ sᴄʀᴇᴇɴsʜᴏᴛ ᴘʟᴇᴀsᴇ ɢɪᴠᴇ ᴜs sᴏᴍᴇ ᴛɪᴍᴇ ᴛᴏ ᴀᴅᴅ ʏᴏᴜ ɪɴ ᴛʜᴇ ᴘʀᴇᴍɪᴜᴍ</b>')
-OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'XSUPPRTBOT)
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'XSUPPRTBOT')
 
 DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = os.environ.get("DATABASE_NAME", "DATABASE")
