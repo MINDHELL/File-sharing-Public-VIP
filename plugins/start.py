@@ -23,8 +23,8 @@ from database.database import add_user, del_user, full_userbase, present_user
 
 from asyncio import sleep
 
-autodelete = 60
-delete_after = 600
+autodelete = 10
+delete_after = 15
 client = MongoClient(DB_URI)  # Replace with your MongoDB URI
 db = client[DB_NAME]  # Database name
 phdlust = db["phdlust"]  # Collection for users
