@@ -99,7 +99,7 @@ async def link_generator(client: Client, message: Message):
     premium_link = f"https://t.me/{client.username}?start={vipbase64_string}"
 
     await channel_message.reply_text(
-        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link} \n\nJoin @ultroid_official",
+        f"<b>Here are your links:</b>\n\n🤦‍♂️ Normal: {normal_link} \n\n✨ Premium: {premium_link}",
         quote=True)  #, reply_markup=reply_markup)
 
 
